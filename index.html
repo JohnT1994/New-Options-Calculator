@@ -370,6 +370,7 @@
             const variance = arr.reduce((a, b) => a + (b - mean) ** 2, 0) / arr.length;
             return Math.sqrt(variance);
         }
+        
         async function fetchPutCallRatio(sym) {
     try {
         const url = `https://query1.finance.yahoo.com/v7/finance/options/${sym}`;
@@ -384,21 +385,21 @@
         }
         
         const options = data.optionChain.result[0].options[0];
-        let putVol = 0, callVol = 0;
+        let putOI = 0, callOI = 0;
         
-        // Sum volumes
+        // Sum open interest
         if (options.calls) {
-            options.calls.forEach(c => callVol += (c.volume || 0));
+            options.calls.forEach(c => callOI += (c.openInterest || 0));
         }
         
         if (options.puts) {
-            options.puts.forEach(p => putVol += (p.volume || 0));
+            options.puts.forEach(p => putOI += (p.openInterest || 0));
         }
         
-        console.log(`Put Vol: ${putVol}, Call Vol: ${callVol}`);
+        console.log(`Put OI: ${putOI}, Call OI: ${callOI}`);
         
-        const ratio = callVol > 0 ? (putVol / callVol) : 0;
-        return ratio;
+        const ratio = callOI > 0 ? (putOI / callOI) : 0;
+        return ratio.toFixed(2);  // Round to 2 decimals for display
     } catch (err) {
         console.error("Put/Call ratio fetch failed:", err);
         return 0;
@@ -407,8 +408,8 @@
        async function fetchCVD(sym) {
     try {
         const now = Math.floor(Date.now() / 1000);
-        const start = now - 86400; // 24 hours ago
-        const url = `https://query1.finance.yahoo.com/v8/finance/chart/${sym}?interval=5m&period1=${start}&period2=${now}`;
+        const start = now - 30 * 86400;  // 30 days ago
+        const url = `https://query1.finance.yahoo.com/v8/finance/chart/${sym}?interval=1d&period1=${start}&period2=${now}`;
         
         const response = await fetch(PROXY + encodeURIComponent(url));
         const data = await response.json();
@@ -416,30 +417,37 @@
         console.log('CVD Data:', data);
         
         if (!data.chart?.result?.[0]) {
-            console.warn('No intraday data available for CVD');
+            console.warn('No historical data available for CVD');
             return 0;
         }
         
         const result = data.chart.result[0];
         const quote = result.indicators.quote[0];
         const closes = quote.close;
+        const highs = quote.high;
+        const lows = quote.low;
         const volumes = quote.volume;
         
-        if (!closes || !volumes) {
+        if (!closes || !highs || !lows || !volumes) {
             console.warn('Missing price or volume data');
             return 0;
         }
         
         let cvd = 0;
-        for (let i = 1; i < closes.length; i++) {
-            if (closes[i] != null && closes[i-1] != null && volumes[i] != null) {
-                const direction = closes[i] > closes[i-1] ? 1 : (closes[i] < closes[i-1] ? -1 : 0);
-                cvd += volumes[i] * direction;
+        let totalVol = 0;
+        for (let i = 0; i < closes.length; i++) {
+            if (closes[i] != null && highs[i] != null && lows[i] != null && volumes[i] != null && highs[i] !== lows[i]) {
+                const vd = volumes[i] * (2 * closes[i] - highs[i] - lows[i]) / (highs[i] - lows[i]);
+                cvd += vd;
+                totalVol += volumes[i];  // For normalization
             }
         }
         
-        console.log(`CVD calculated: ${cvd.toFixed(0)}`);
-        return cvd;
+        // Normalize to a ratio (-1 to +1) for simplicity
+        const normalizedCVD = totalVol > 0 ? (cvd / totalVol) : 0;
+        
+        console.log(`CVD calculated: ${cvd.toFixed(0)}, Normalized: ${normalizedCVD.toFixed(2)}`);
+        return normalizedCVD.toFixed(2);  // Display the simpler normalized value
     } catch (err) {
         console.error("CVD fetch failed:", err);
         return 0;
@@ -509,11 +517,11 @@
             }
             // Put/Call Ratio
             const pcr = await fetchPutCallRatio(sym);
-document.getElementById('pcr').textContent = pcr.toFixed(2);
+    document.getElementById('pcr').textContent = pcr;
 
             // CVD
             const cvd = await fetchCVD(sym);
-document.getElementById('cvd').textContent = cvd.toFixed(2);
+    document.getElementById('cvd').textContent = cvd;
             // Market regime placeholder (add more as needed)
             const adx = 20; // Placeholder calculation for ADX
             // Macro placeholder
