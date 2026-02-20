@@ -370,43 +370,61 @@
             const variance = arr.reduce((a, b) => a + (b - mean) ** 2, 0) / arr.length;
             return Math.sqrt(variance);
         }
-        async function fetchPutCallRatio(sym) {
-            const url = `https://api.polygon.io/v3/snapshot/options/${sym}?order=asc&limit=1000&sort=ticker&apiKey=${POLYGON_KEY}`;
+        async function fetchPutCallRatioYahoo(sym) {
             try {
+                const url = `https://query1.finance.yahoo.com/v7/finance/options/${sym}`;
                 const response = await fetch(PROXY + encodeURIComponent(url));
                 const data = await response.json();
+                
+                if (!data.optionChain?.result?.[0]?.options?.[0]) {
+                    console.warn('No options data available');
+                    return 0;
+                }
+                
+                const options = data.optionChain.result[0].options[0];
                 let putVol = 0, callVol = 0;
-                data.results.forEach(o => {
-                    if (o.details.contract_type === 'put') putVol += o.day.volume || 0;
-                    else if (o.details.contract_type === 'call') callVol += o.day.volume || 0;
-                });
-                return callVol > 0 ? putVol / callVol : 0;
+                
+                options.calls?.forEach(c => callVol += c.volume || 0);
+                options.puts?.forEach(p => putVol += p.volume || 0);
+                
+                const ratio = callVol > 0 ? putVol / callVol : 0;
+                console.log(`P/C Ratio: ${ratio.toFixed(2)} (Put: ${putVol}, Call: ${callVol})`);
+                return ratio;
             } catch (err) {
-                console.error("Put/Call ratio fetch failed:", err);
+                console.error("P/C Ratio error:", err);
                 return 0;
             }
         }
-        async function fetchCVD(sym) {
-            const url = `https://api.polygon.io/v3/trades/${sym}?limit=100&apiKey=${POLYGON_KEY}`;
+        async function fetchCVDYahoo(sym) {
             try {
+                const now = Math.floor(Date.now() / 1000);
+                const start = now - 86400;
+                const url = `https://query1.finance.yahoo.com/v8/finance/chart/${sym}?interval=5m&period1=${start}&period2=${now}`;
+                
                 const response = await fetch(PROXY + encodeURIComponent(url));
                 const data = await response.json();
+                
+                if (!data.chart?.result?.[0]) {
+                    console.warn('No intraday data available');
+                    return 0;
+                }
+                
+                const quote = data.chart.result[0].indicators.quote[0];
+                const closes = quote.close;
+                const volumes = quote.volume;
+                
                 let cvd = 0;
-                let previousPrice = null;
-                let direction = 0;
-                data.results.forEach(trade => {
-                    if (previousPrice === null) {
-                        previousPrice = trade.price;
-                        return;
+                for (let i = 1; i < closes.length; i++) {
+                    if (closes[i] && closes[i-1] && volumes[i]) {
+                        const dir = closes[i] > closes[i-1] ? 1 : (closes[i] < closes[i-1] ? -1 : 0);
+                        cvd += volumes[i] * dir;
                     }
-                    let dir = trade.price > previousPrice ? 1 : (trade.price < previousPrice ? -1 : direction);
-                    cvd += trade.size * dir;
-                    direction = dir;
-                    previousPrice = trade.price;
-                });
+                }
+                
+                console.log(`CVD: ${cvd.toFixed(0)}`);
                 return cvd;
             } catch (err) {
-                console.error("CVD fetch failed:", err);
+                console.error("CVD error:", err);
                 return 0;
             }
         }
@@ -473,10 +491,10 @@
                 volNote += 'ATR expansion confirmed. ';
             }
             // Put/Call Ratio
-            const pcr = await fetchPutCallRatio(sym);
+            const pcr = await fetchPutCallRatioYahoo(sym);
             document.getElementById('pcr').textContent = pcr.toFixed(2);
             // CVD
-            const cvd = await fetchCVD(sym);
+            const cvd = await fetchCVDYahoo(sym);
             document.getElementById('cvd').textContent = cvd.toFixed(2);
             // Market regime placeholder (add more as needed)
             const adx = 20; // Placeholder calculation for ADX
@@ -511,7 +529,11 @@
                 message = `Do Not Execute Transaction: Probability of Success: ${popVal.toFixed(1)}%`;
                 notif.style.color = '#ff4d4d';
             }
-            notif.textContent = message + ' ' + volNote;
+            let marginNote = '';
+            if (type === 'put') {
+                marginNote = ' Max Loss includes the premiums paid. Possible Margin Call based on PRICE INCREASE';
+            }
+            notif.textContent = message + ' ' + volNote + marginNote;
             document.getElementById('results').style.display = 'block';
             drawChart(S, K, type, paidPrem, qty, iv, T, r, be, currentPrem);
         }
