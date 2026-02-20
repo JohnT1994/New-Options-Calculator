@@ -120,7 +120,7 @@
     <script>
         const POLYGON_KEY = "khT7kqtgtjpevl6jDgff0B0jPBr2gpqc";
         const FINNHUB_KEY = "d6a41gpr01qsjlb9lhj0d6a41gpr01qsjlb9lhjg";
-        const PROXY = "https://corsproxy.io/?";
+        const PROXY = "https://api.codetabs.com/v1/proxy?quest="; // Updated proxy to fix sync issue
         let payoffChart = null;
         let cachedChain = null;
         const normPDF = (x) => Math.exp(-0.5 * x * x) / Math.sqrt(2 * Math.PI);
@@ -209,7 +209,7 @@
             const vixDisplay = document.getElementById('vixVal');
             const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/^VIX`;
             try {
-                const response = await fetch(PROXY + encodeURIComponent(yahooUrl));
+                const response = await fetch(PROXY + yahooUrl);
                 const data = await response.json();
                 const price = data.chart.result[0].meta.regularMarketPrice;
                 if (price) {
@@ -226,7 +226,7 @@
             const rfInput = document.getElementById('rf');
             const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/^TNX`;
             try {
-                const response = await fetch(PROXY + encodeURIComponent(yahooUrl));
+                const response = await fetch(PROXY + yahooUrl);
                 const data = await response.json();
                 const price = data.chart.result[0].meta.regularMarketPrice;
                 if (price) {
@@ -256,10 +256,10 @@
             const sym = document.getElementById('symbol').value.toUpperCase();
             if(!sym) return;
             const qUrl = `https://finnhub.io/api/v1/quote?symbol=${sym}&token=${FINNHUB_KEY}`;
-            const q = await fetch(PROXY + encodeURIComponent(qUrl)).then(r => r.json());
+            const q = await fetch(PROXY + qUrl).then(r => r.json());
             if(q.c) document.getElementById('stockPrice').value = q.c.toFixed(2);
             const pUrl = `https://finnhub.io/api/v1/stock/profile2?symbol=${sym}&token=${FINNHUB_KEY}`;
-            const p = await fetch(PROXY + encodeURIComponent(pUrl)).then(r => r.json());
+            const p = await fetch(PROXY + pUrl).then(r => r.json());
             if(p.logo) {
                 document.getElementById('stockLogo').src = p.logo;
                 document.getElementById('stockLogo').style.display = 'block';
@@ -270,7 +270,7 @@
             const sym = document.getElementById('symbol').value.toUpperCase();
             if (cachedChain && cachedChain.symbol === sym) return cachedChain.data;
             const url = `https://api.polygon.io/v3/reference/options/contracts?underlying_ticker=${sym}&limit=1000&apiKey=${POLYGON_KEY}`;
-            const res = await fetch(PROXY + encodeURIComponent(url)).then(r => r.json());
+            const res = await fetch(PROXY + url).then(r => r.json());
             const organized = {};
             res.results.forEach(c => {
                 if (!organized[c.expiration_date]) organized[c.expiration_date] = { calls: [], puts: [] };
@@ -354,7 +354,7 @@
             const from = new Date(new Date().getTime() - 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
             const url = `https://api.polygon.io/v2/aggs/ticker/${sym}/range/1/day/${from}/${to}?apiKey=${POLYGON_KEY}`;
             try {
-                const response = await fetch(PROXY + encodeURIComponent(url));
+                const response = await fetch(PROXY + url);
                 const data = await response.json();
                 return data.results.map(d => ({ date: new Date(d.t), open: d.o, high: d.h, low: d.l, close: d.c, volume: d.v }));
             } catch (err) {
@@ -374,7 +374,7 @@
     async function fetchPutCallRatio(sym) {
 try {
     const url = `https://query1.finance.yahoo.com/v7/finance/options/${sym}`;
-    const response = await fetch(PROXY + encodeURIComponent(url));
+    const response = await fetch(PROXY + url);
     const data = await response.json();
     
     console.log('P/C Ratio Data:', data);
@@ -408,7 +408,8 @@ try {
     try {
         const now = Math.floor(Date.now() / 1000);
         const start = now - 30 * 86400;  // 30 days ago
-        const url = https://query1.finance.yahoo.com/v8/finance/chart/${sym}?interval=1d&period1=${start}&period2=${now};    const response = await fetch(PROXY + encodeURIComponent(url));
+        const url = `https://query1.finance.yahoo.com/v8/finance/chart/${sym}?interval=1d&period1=${start}&period2=${now}`;
+        const response = await fetch(PROXY + url);
     const data = await response.json();
     
     console.log('CVD Data:', data);
@@ -513,95 +514,95 @@ try {
             }
             // Put/Call Ratio
             const pcr = await fetchPutCallRatio(sym);
-    document.getElementById('pcr').textContent = pcr;        // CVD
-        const cvd = await fetchCVD(sym);
-document.getElementById('cvd').textContent = cvd;
-        // Market regime placeholder (add more as needed)
-        const adx = 20; // Placeholder calculation for ADX
-        // Macro placeholder
-        // Backtesting placeholder (simulate historical trades)
-        // Monte Carlo for PoP
-        const pop = calculatePoPMC(S, K, T, r, iv, type, paidPrem);
-        const popVal = pop;
-        document.getElementById('pop').textContent = pop.toFixed(1) + "%";
-        const be = type === 'call' ? K + paidPrem : K - paidPrem;
-        document.getElementById('resCost').textContent = "$" + (paidPrem * 100 * qty).toLocaleString();
-        document.getElementById('resBreak').textContent = be.toFixed(2);
-        document.getElementById('resProfit').textContent = type === 'call' ? "Unlimited" : "$" + ((K - paidPrem) * 100 * qty).toLocaleString();
-        document.getElementById('resLoss').textContent = "$" + (paidPrem * 100 * qty).toLocaleString();
-        const d1 = (Math.log(S / K) + (r + 0.5 * iv * iv) * T) / (iv * Math.sqrt(T));
-        document.getElementById('d').textContent = (type === 'call' ? normCDF(d1) : normCDF(d1) - 1).toFixed(3);
-        document.getElementById('g').textContent = (normPDF(d1) / (S * iv * Math.sqrt(T))).toFixed(4);
-        document.getElementById('t').textContent = (-(S * normPDF(d1) * iv / (2 * Math.sqrt(T)) / 365)).toFixed(3);
-        document.getElementById('v').textContent = (S * Math.sqrt(T) * normPDF(d1) / 100).toFixed(3);
-        const d2 = d1 - (iv * Math.sqrt(T));
-        document.getElementById('r').textContent = ((type === 'call' ? K * T * Math.exp(-r * T) * normCDF(d2) : -K * T * Math.exp(-r * T) * normCDF(-d2)) / 100).toFixed(3);
-        // Notification
-        const notif = document.getElementById('notification');
-        let message;
-        if (popVal > 55) {
-            message = `Probability of Success: ${popVal.toFixed(1)}%`;
-            notif.style.color = '#28a745';
-        } else if (popVal >= 50) {
-            message = `Take Caution: Probability of Success: ${popVal.toFixed(1)}%`;
-            notif.style.color = '#ffd700';
-        } else {
-            message = `Do Not Execute Transaction: Probability of Success: ${popVal.toFixed(1)}%`;
-            notif.style.color = '#ff4d4d';
-        }
-        let marginNote = '';
-        if (type === 'put') {
-            marginNote = ' Max Loss includes the premiums paid. Possible Margin Call based on PRICE INCREASE';
-        }
-        notif.textContent = message + ' ' + volNote + marginNote;
-        document.getElementById('results').style.display = 'block';
-        drawChart(S, K, type, paidPrem, qty, iv, T, r, be, currentPrem);
-    }
-    function drawChart(S, K, type, paidPrem, qty, iv, T, r, be, currentPrem) {
-        const ctx = document.getElementById('payoffChart').getContext('2d');
-        const labels = [], expData = [], nowData = [];
-        const start = S * 0.7, end = S * 1.3;
-        for (let p = start; p <= end; p += (end - start)/100) {
-            labels.push(p.toFixed(2));
-            let intrinsic = type === 'call' ? Math.max(0, p - K) : Math.max(0, K - p);
-            expData.push((intrinsic - paidPrem) * 100 * qty);
-            nowData.push((blackScholes(p, K, T, r, iv, type) - paidPrem) * 100 * qty);
-        }
-        if (payoffChart) payoffChart.destroy();
-        payoffChart = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels,
-                datasets: [
-                    { label: 'At Expiry', data: expData, borderColor: '#007bff', fill: true, backgroundColor: 'rgba(0,123,255,0.1)', pointRadius:0, borderWidth: 3 },
-                    { label: 'Today (T+0)', data: nowData, borderColor: '#fff', borderDash: [5,5], pointRadius:0, borderWidth: 2 }
-                ]
-            },
-            options: {
-                responsive:true,
-                maintainAspectRatio:false,
-                interaction: { mode: 'index', intersect: false },
-                plugins: {
-                    legend: { labels: { color: '#fff' } },
-                    tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: $${parseFloat(ctx.raw).toFixed(2)}` }, backgroundColor: 'rgba(0,0,0,0.8)', titleColor: '#4db8ff', bodyColor: '#fff', borderColor: '#4db8ff', borderWidth: 1 },
-                    annotation: {
-                        annotations: {
-                            currPrice: { type: 'line', xMin: findIdx(labels, S), xMax: findIdx(labels, S), borderColor: '#ffcc00', borderWidth: 2, label: { display: true, content: 'Current Price', backgroundColor: '#ffcc00', color: '#000', yAdjust: -20 } },
-                            breakeven: { type: 'line', xMin: findIdx(labels, be), xMax: findIdx(labels, be), borderColor: '#ff4d4d', borderDash: [2, 2], borderWidth: 2, label: { display: true, content: 'Breakeven', backgroundColor: '#ff4d4d', color: '#fff', yAdjust: 20 } }
-                        }
-                    }
-                },
-                scales:{ x:{grid:{color:'rgba(255,255,255,0.05)'}, ticks:{color:'#888'}}, y:{grid:{color:'rgba(255,255,255,0.05)'}, ticks:{color:'#888'}}} 
+            document.getElementById('pcr').textContent = pcr;
+            // CVD
+            const cvd = await fetchCVD(sym);
+            document.getElementById('cvd').textContent = cvd;
+            // Market regime placeholder (add more as needed)
+            const adx = 20; // Placeholder calculation for ADX
+            // Macro placeholder
+            // Backtesting placeholder (simulate historical trades)
+            // Monte Carlo for PoP
+            const pop = calculatePoPMC(S, K, T, r, iv, type, paidPrem);
+            const popVal = pop;
+            document.getElementById('pop').textContent = pop.toFixed(1) + "%";
+            const be = type === 'call' ? K + paidPrem : K - paidPrem;
+            document.getElementById('resCost').textContent = "$" + (paidPrem * 100 * qty).toLocaleString();
+            document.getElementById('resBreak').textContent = be.toFixed(2);
+            document.getElementById('resProfit').textContent = type === 'call' ? "Unlimited" : "$" + ((K - paidPrem) * 100 * qty).toLocaleString();
+            document.getElementById('resLoss').textContent = "$" + (paidPrem * 100 * qty).toLocaleString();
+            const d1 = (Math.log(S / K) + (r + 0.5 * iv * iv) * T) / (iv * Math.sqrt(T));
+            document.getElementById('d').textContent = (type === 'call' ? normCDF(d1) : normCDF(d1) - 1).toFixed(3);
+            document.getElementById('g').textContent = (normPDF(d1) / (S * iv * Math.sqrt(T))).toFixed(4);
+            document.getElementById('t').textContent = (-(S * normPDF(d1) * iv / (2 * Math.sqrt(T)) / 365)).toFixed(3);
+            document.getElementById('v').textContent = (S * Math.sqrt(T) * normPDF(d1) / 100).toFixed(3);
+            const d2 = d1 - (iv * Math.sqrt(T));
+            document.getElementById('r').textContent = ((type === 'call' ? K * T * Math.exp(-r * T) * normCDF(d2) : -K * T * Math.exp(-r * T) * normCDF(-d2)) / 100).toFixed(3);
+            // Notification
+            const notif = document.getElementById('notification');
+            let message;
+            if (popVal > 55) {
+                message = `Probability of Success: ${popVal.toFixed(1)}%`;
+                notif.style.color = '#28a745';
+            } else if (popVal >= 50) {
+                message = `Take Caution: Probability of Success: ${popVal.toFixed(1)}%`;
+                notif.style.color = '#ffd700';
+            } else {
+                message = `Do Not Execute Transaction: Probability of Success: ${popVal.toFixed(1)}%`;
+                notif.style.color = '#ff4d4d';
             }
-        });
-    }
-    function findIdx(arr, target) {
-        let closest = arr.reduce((prev, curr) => Math.abs(curr - target) < Math.abs(prev - target) ? curr : prev);
-        return arr.indexOf(closest);
-    }
-    function clearCache() {
-        cachedChain = null;
-    }
-</script>
-</body>
+            let marginNote = '';
+            if (type === 'put') {
+                marginNote = ' Max Loss includes the premiums paid. Possible Margin Call based on PRICE INCREASE';
+            }
+            notif.textContent = message + ' ' + volNote + marginNote;
+            document.getElementById('results').style.display = 'block';
+            drawChart(S, K, type, paidPrem, qty, iv, T, r, be, currentPrem);
+        }
+        function drawChart(S, K, type, paidPrem, qty, iv, T, r, be, currentPrem) {
+            const ctx = document.getElementById('payoffChart').getContext('2d');
+            const labels = [], expData = [], nowData = [];
+            const start = S * 0.7, end = S * 1.3;
+            for (let p = start; p <= end; p += (end - start)/100) {
+                labels.push(p.toFixed(2));
+                let intrinsic = type === 'call' ? Math.max(0, p - K) : Math.max(0, K - p);
+                expData.push((intrinsic - paidPrem) * 100 * qty);
+                nowData.push((blackScholes(p, K, T, r, iv, type) - paidPrem) * 100 * qty);
+            }
+            if (payoffChart) payoffChart.destroy();
+            payoffChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [
+                        { label: 'At Expiry', data: expData, borderColor: '#007bff', fill: true, backgroundColor: 'rgba(0,123,255,0.1)', pointRadius:0, borderWidth: 3 },
+                        { label: 'Today (T+0)', data: nowData, borderColor: '#fff', borderDash: [5,5], pointRadius:0, borderWidth: 2 }
+                    ]
+                },
+                options: {
+                    responsive:true,
+                    maintainAspectRatio:false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: { labels: { color: '#fff' } },
+                        tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: $${parseFloat(ctx.raw).toFixed(2)}` }, backgroundColor: 'rgba(0,0,0,0.8)', titleColor: '#4db8ff', bodyColor: '#fff', borderColor: '#4db8ff', borderWidth: 1 },
+                        annotation: {
+                            annotations: {
+                                currPrice: { type: 'line', xMin: findIdx(labels, S), xMax: findIdx(labels, S), borderColor: '#ffcc00', borderWidth: 2, label: { display: true, content: 'Current Price', backgroundColor: '#ffcc00', color: '#000', yAdjust: -20 } },
+                                breakeven: { type: 'line', xMin: findIdx(labels, be), xMax: findIdx(labels, be), borderColor: '#ff4d4d', borderDash: [2, 2], borderWidth: 2, label: { display: true, content: 'Breakeven', backgroundColor: '#ff4d4d', color: '#fff', yAdjust: 20 } }
+                            }
+                        }
+                    },
+                    scales:{ x:{grid:{color:'rgba(255,255,255,0.05)'}, ticks:{color:'#888'}}, y:{grid:{color:'rgba(255,255,255,0.05)'}, ticks:{color:'#888'}}} 
+                }
+            });
+        }
+        function findIdx(arr, target) {
+            let closest = arr.reduce((prev, curr) => Math.abs(curr - target) < Math.abs(prev - target) ? curr : prev);
+            return arr.indexOf(closest);
+        }
+        function clearCache() {
+            cachedChain = null;
+        }
+</script></body>
 </html>
