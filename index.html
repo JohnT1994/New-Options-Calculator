@@ -79,12 +79,12 @@
             <div>
                 <label>Paid Premium Price</label>
                 <input type="number" id="paidPremium" step="0.01" value="0.00" oninput="checkPaidWarn()" />
-                <div id="paidWarn" class="warning-box">⚠️ Please enter a valid paid premium.</div>
+                <div id="paidWarn" class="warning-box"> Please enter a valid paid premium.</div>
             </div>
             <div>
                 <label>Current Premium Price</label>
                 <input type="number" id="currentPremium" step="0.01" value="0.00" style="border: 2px solid #ccc;" oninput="checkPremiumWarn(); updateIV()"/>
-                <div id="premWarning" class="warning-box">⚠️ Market price not found. Please enter manually.</div>
+                <div id="premWarning" class="warning-box"> Market price not found. Please enter manually.</div>
             </div>
             <div><label>Implied Volatility (%)</label><input type="number" id="iv" readonly /></div>
             <button type="button" class="btn-calc" onclick="runAnalysis()">Run Full Analysis</button>
@@ -114,7 +114,8 @@
             </div>
         </div>
         <footer>
-            &copy; 2026 Options Probability Calculator. All rights reserved.<br> Licensed under the MIT License. Data provided for educational purposes only.
+            &copy; 2026 Options Probability Calculator. All rights reserved.
+ Licensed under the MIT License. Data provided for educational purposes only.
         </footer>
     </div>
     <script>
@@ -372,79 +373,73 @@
         }
         async function fetchPutCallRatio(sym) {
     try {
-        const url = `https://query1.finance.yahoo.com/v7/finance/options/${sym}`;
-        const response = await fetch(PROXY + encodeURIComponent(url));
+        let putVol = 0;
+        let callVol = 0;
+        let nextUrl = `https://api.polygon.io/v3/snapshot/options/${sym}?limit=1000&apiKey=${POLYGON_KEY}`;
+
+    while (nextUrl) {
+        const response = await fetch(PROXY + encodeURIComponent(nextUrl));
         const data = await response.json();
         
-        console.log('P/C Ratio Data:', data);
-        
-        if (!data.optionChain?.result?.[0]?.options?.[0]) {
-            console.warn('No options data available for P/C ratio');
-            return 0;
+        if (!data.results) {
+            console.warn('No options snapshot data available');
+            break;
         }
         
-        const options = data.optionChain.result[0].options[0];
-        let putVol = 0, callVol = 0;
+        data.results.forEach(opt => {
+            const volume = opt.day?.volume || 0;
+            if (opt.details.contract_type === 'call') {
+                callVol += volume;
+            } else if (opt.details.contract_type === 'put') {
+                putVol += volume;
+            }
+        });
         
-        // Sum volumes
-        if (options.calls) {
-            options.calls.forEach(c => callVol += (c.volume || 0));
-        }
-        
-        if (options.puts) {
-            options.puts.forEach(p => putVol += (p.volume || 0));
-        }
-        
-        console.log(`Put Vol: ${putVol}, Call Vol: ${callVol}`);
-        
-        const ratio = callVol > 0 ? (putVol / callVol) : 0;
-        return ratio;
-    } catch (err) {
-        console.error("Put/Call ratio fetch failed:", err);
-        return 0;
+        nextUrl = data.next_url ? `${data.next_url}&apiKey=${POLYGON_KEY}` : null;
     }
-}
+    
+    console.log(`Put Vol: ${putVol}, Call Vol: ${callVol}`);
+    
+    const ratio = callVol > 0 ? (putVol / callVol) : 0;
+    return ratio;
+} catch (err) {
+    console.error("Put/Call ratio fetch failed:", err);
+    return 0;
+}}
        async function fetchCVD(sym) {
     try {
-        const now = Math.floor(Date.now() / 1000);
-        const start = now - 86400; // 24 hours ago
-        const url = `https://query1.finance.yahoo.com/v8/finance/chart/${sym}?interval=5m&period1=${start}&period2=${now}`;
-        
-        const response = await fetch(PROXY + encodeURIComponent(url));
-        const data = await response.json();
-        
-        console.log('CVD Data:', data);
-        
-        if (!data.chart?.result?.[0]) {
-            console.warn('No intraday data available for CVD');
-            return 0;
-        }
-        
-        const result = data.chart.result[0];
-        const quote = result.indicators.quote[0];
-        const closes = quote.close;
-        const volumes = quote.volume;
-        
-        if (!closes || !volumes) {
-            console.warn('Missing price or volume data');
-            return 0;
-        }
-        
-        let cvd = 0;
-        for (let i = 1; i < closes.length; i++) {
-            if (closes[i] != null && closes[i-1] != null && volumes[i] != null) {
-                const direction = closes[i] > closes[i-1] ? 1 : (closes[i] < closes[i-1] ? -1 : 0);
-                cvd += volumes[i] * direction;
-            }
-        }
-        
-        console.log(`CVD calculated: ${cvd.toFixed(0)}`);
-        return cvd;
-    } catch (err) {
-        console.error("CVD fetch failed:", err);
+        const today = new Date();
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);    const fromDate = yesterday.toISOString().split('T')[0];
+    const toDate = today.toISOString().split('T')[0];
+    
+    const url = `https://api.polygon.io/v2/aggs/ticker/${sym}/range/5/minute/${fromDate}/${toDate}?apiKey=${POLYGON_KEY}`;
+    
+    const response = await fetch(PROXY + encodeURIComponent(url));
+    const data = await response.json();
+    
+    if (!data.results) {
+        console.warn('No aggregate data available for CVD');
         return 0;
     }
-}
+    
+    let cvd = 0;
+    const closes = data.results.map(r => r.c);
+    const volumes = data.results.map(r => r.v);
+    
+    for (let i = 1; i < closes.length; i++) {
+        if (closes[i] != null && closes[i-1] != null && volumes[i] != null) {
+            const direction = closes[i] > closes[i-1] ? 1 : (closes[i] < closes[i-1] ? -1 : 0);
+            cvd += volumes[i] * direction;
+        }
+    }
+    
+    console.log(`CVD calculated: ${cvd}`);
+    return cvd;
+} catch (err) {
+    console.error("CVD fetch failed:", err);
+    return 0;
+}}
         async function runAnalysis() {
             const paidPrem = parseFloat(document.getElementById('paidPremium').value);
             const currentPrem = parseFloat(document.getElementById('currentPremium').value);
@@ -509,11 +504,8 @@
             }
             // Put/Call Ratio
             const pcr = await fetchPutCallRatio(sym);
-document.getElementById('pcr').textContent = pcr.toFixed(2);
-
-            // CVD
-            const cvd = await fetchCVD(sym);
-document.getElementById('cvd').textContent = cvd.toFixed(2);
+document.getElementById('pcr').textContent = pcr.toFixed(2);        // CVD
+        const cvd = await fetchCVD(sym);document.getElementById('cvd').textContent = cvd.toFixed(2);
             // Market regime placeholder (add more as needed)
             const adx = 20; // Placeholder calculation for ADX
             // Macro placeholder
@@ -538,13 +530,13 @@ document.getElementById('cvd').textContent = cvd.toFixed(2);
             const notif = document.getElementById('notification');
             let message;
             if (popVal > 55) {
-                message = `Probability of Success: ${popVal.toFixed(1)}%`;
+                message = Probability of Success: ${popVal.toFixed(1)}%;
                 notif.style.color = '#28a745';
             } else if (popVal >= 50) {
-                message = `Take Caution: Probability of Success: ${popVal.toFixed(1)}%`;
+                message = Take Caution: Probability of Success: ${popVal.toFixed(1)}%;
                 notif.style.color = '#ffd700';
             } else {
-                message = `Do Not Execute Transaction: Probability of Success: ${popVal.toFixed(1)}%`;
+                message = Do Not Execute Transaction: Probability of Success: ${popVal.toFixed(1)}%;
                 notif.style.color = '#ff4d4d';
             }
             let marginNote = '';
@@ -581,7 +573,7 @@ document.getElementById('cvd').textContent = cvd.toFixed(2);
                     interaction: { mode: 'index', intersect: false },
                     plugins: {
                         legend: { labels: { color: '#fff' } },
-                        tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: $${parseFloat(ctx.raw).toFixed(2)}` }, backgroundColor: 'rgba(0,0,0,0.8)', titleColor: '#4db8ff', bodyColor: '#fff', borderColor: '#4db8ff', borderWidth: 1 },
+                        tooltip: { callbacks: { label: (ctx) => ${ctx.dataset.label}: $${parseFloat(ctx.raw).toFixed(2)} }, backgroundColor: 'rgba(0,0,0,0.8)', titleColor: '#4db8ff', bodyColor: '#fff', borderColor: '#4db8ff', borderWidth: 1 },
                         annotation: {
                             annotations: {
                                 currPrice: { type: 'line', xMin: findIdx(labels, S), xMax: findIdx(labels, S), borderColor: '#ffcc00', borderWidth: 2, label: { display: true, content: 'Current Price', backgroundColor: '#ffcc00', color: '#000', yAdjust: -20 } },
@@ -600,6 +592,6 @@ document.getElementById('cvd').textContent = cvd.toFixed(2);
         function clearCache() {
             cachedChain = null;
         }
-    </script>
-</body>
+    </script></body>
 </html>
+
