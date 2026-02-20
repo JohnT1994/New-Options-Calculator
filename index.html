@@ -114,13 +114,13 @@
             </div>
         </div>
         <footer>
-            &copy; 2026 Options Probability Calculator. All rights reserved.
- Licensed under the MIT License. Data provided for educational purposes only.
+            &copy; 2026 Options Probability Calculator. All rights reserved.<br> Licensed under the MIT License. Data provided for educational purposes only.
         </footer>
     </div>
     <script>
         const POLYGON_KEY = "khT7kqtgtjpevl6jDgff0B0jPBr2gpqc";
         const FINNHUB_KEY = "d6a41gpr01qsjlb9lhj0d6a41gpr01qsjlb9lhjg";
+        const PROXY = "https://corsproxy.io/?";
         let payoffChart = null;
         let cachedChain = null;
         const normPDF = (x) => Math.exp(-0.5 * x * x) / Math.sqrt(2 * Math.PI);
@@ -371,13 +371,44 @@
             return Math.sqrt(variance);
         }
         
-   async function fetchCVD(sym) {
+    async function fetchPutCallRatio(sym) {
 try {
-    const now = Math.floor(Date.now() / 1000);
-    const start = now - 30 * 86400;  // 30 days ago
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${sym}?interval=1d&period1=${start}&period2=${now}`;
-    
+    const url = `https://query1.finance.yahoo.com/v7/finance/options/${sym}`;
     const response = await fetch(PROXY + encodeURIComponent(url));
+    const data = await response.json();
+    
+    console.log('P/C Ratio Data:', data);
+    
+    if (!data.optionChain?.result?.[0]?.options?.[0]) {
+        console.warn('No options data available for P/C ratio');
+        return 0;
+    }
+    
+    const options = data.optionChain.result[0].options[0];
+    let putOI = 0, callOI = 0;
+    
+    // Sum open interest
+    if (options.calls) {
+        options.calls.forEach(c => callOI += (c.openInterest || 0));
+    }
+    
+    if (options.puts) {
+        options.puts.forEach(p => putOI += (p.openInterest || 0));
+    }
+    
+    console.log(`Put OI: ${putOI}, Call OI: ${callOI}`);
+    
+    const ratio = callOI > 0 ? (putOI / callOI) : 0;
+    return ratio.toFixed(2);  // Round to 2 decimals for display
+} catch (err) {
+    console.error("Put/Call ratio fetch failed:", err);
+    return 0;
+}}
+       async function fetchCVD(sym) {
+    try {
+        const now = Math.floor(Date.now() / 1000);
+        const start = now - 30 * 86400;  // 30 days ago
+        const url = https://query1.finance.yahoo.com/v8/finance/chart/${sym}?interval=1d&period1=${start}&period2=${now};    const response = await fetch(PROXY + encodeURIComponent(url));
     const data = await response.json();
     
     console.log('CVD Data:', data);
@@ -482,9 +513,9 @@ try {
             }
             // Put/Call Ratio
             const pcr = await fetchPutCallRatio(sym);
-            document.getElementById('pcr').textContent = pcr;        // CVD
+    document.getElementById('pcr').textContent = pcr;        // CVD
         const cvd = await fetchCVD(sym);
-        document.getElementById('cvd').textContent = cvd;
+document.getElementById('cvd').textContent = cvd;
         // Market regime placeholder (add more as needed)
         const adx = 20; // Placeholder calculation for ADX
         // Macro placeholder
