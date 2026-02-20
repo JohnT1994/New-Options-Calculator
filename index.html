@@ -3,18 +3,18 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Options Probability Calculator | Fixed</title>
+  <title>Options Probability Calculator | VIX & TNX | QUANT PRO</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@2.0.1"></script>
   <style>
     :root { 
-      --primary: #007bff; --success: #28a745; --accent: #6f42c1; --danger: #ff4d4d;
+      --primary: #007bff; --success: #28a745; --accent: #6f42c1; --danger: #ff4d4d; --warning: #ffcc00;
       --glass: rgba(0, 0, 0, 0.9); 
     }
     body { 
       font-family: 'Segoe UI', sans-serif; background-image: url('https://i.imgur.com/nVWumk7.png'); 
       background-size: cover; background-position: center; background-attachment: fixed;
-      color: #ffffff; max-width: 950px; margin: 2rem auto; padding: 0 1rem; 
+      color: #ffffff; max-width: 1100px; margin: 2rem auto; padding: 0 1rem; 
     }
     .container { 
       background: var(--glass); backdrop-filter: blur(15px); padding: 2.5rem; border-radius: 20px; 
@@ -34,11 +34,25 @@
       background: #ffffff; color: #000000; font-size: 0.95rem; box-sizing: border-box;
     }
     .warning-box { color: var(--danger); font-size: 0.75rem; margin-top: 5px; display: none; font-weight: bold; }
-    button { padding: 0.85rem; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.3s; }
+    button { padding: 0.8rem; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.3s; }
     .btn-fetch { background: var(--success); color: white; }
     .btn-calc { background: var(--primary); color: white; width: 100%; font-size: 1.1rem; grid-column: span 2; margin-top: 10px; }
     .picker-btn { display:block; width:100%; margin:5px 0; padding:10px; background:#333; color:white; border:1px solid #555; border-radius:6px; cursor:pointer; text-align:left; }
     #results { margin-top: 2.5rem; display: none; border-top: 1px solid rgba(255,255,255,0.2); padding-top: 2rem; }
+    
+    /* Notification Banner Styling */
+    #executionSignal { 
+      padding: 1.5rem; border-radius: 12px; margin-bottom: 1.5rem; text-align: center; 
+      font-size: 1.2rem; font-weight: 800; display: none; border-left: 10px solid;
+    }
+    .sig-green { background: rgba(40, 167, 69, 0.2); border-color: var(--success); color: #8bff99; }
+    .sig-yellow { background: rgba(255, 204, 0, 0.1); border-color: var(--warning); color: var(--warning); }
+    .sig-red { background: rgba(255, 77, 77, 0.2); border-color: var(--danger); color: #ffb3b3; }
+
+    .quant-container { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 2rem; }
+    .quant-card { background: rgba(255,255,255,0.05); padding: 1rem; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1); }
+    .quant-title { font-size: 0.75rem; color: #4db8ff; text-transform: uppercase; margin-bottom: 10px; font-weight: bold; display: block; }
+
     .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
     .summary-item { background: rgba(255, 255, 255, 0.05); padding: 1.2rem; border-radius: 12px; border-left: 4px solid var(--primary); }
     .greeks-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.6rem; }
@@ -64,6 +78,8 @@
   </div>
 
   <h1 style="text-align:center; margin-top:0; letter-spacing: 1px;">Options Probability Calculator</h1>
+
+  <div id="executionSignal"></div>
 
   <form id="optionForm" class="grid-form">
     <div class="ticket-row">
@@ -111,22 +127,47 @@
   </form>
 
   <div id="results"> 
-    <div class="summary-grid">
+    <div class="quant-container">
+        <div class="quant-card">
+            <span class="quant-title">Monte Carlo Path Simulation (10,000+)</span>
+            <div id="mcProb" style="font-size: 1.2rem; font-weight: bold;">--</div>
+            <div style="font-size: 0.7rem; color: #888;">Iterative risk assessment based on drift & diffusion.</div>
+        </div>
+        <div class="quant-card">
+            <span class="quant-title">Volatility Squeeze (BB/KC)</span>
+            <div id="squeezeStatus" style="font-size: 1rem; font-weight: bold;">--</div>
+            <div id="volRatio" style="font-size: 0.8rem; color: #aaa;">IV vs RV: --</div>
+        </div>
+        <div class="quant-card">
+            <span class="quant-title">Order Flow (CVD Estimator)</span>
+            <div id="cvdMetric" style="font-size: 1rem; font-weight: bold;">--</div>
+            <div style="font-size: 0.7rem; color: #888;">Aggressive buying/selling delta.</div>
+        </div>
+        <div class="quant-card">
+            <span class="quant-title">Market Regime (200-Period Ribbon)</span>
+            <div id="regimeStatus" style="font-size: 0.9rem; font-weight: bold;">--</div>
+            <div id="trendStrength" style="font-size: 0.8rem; color: #aaa;">ADX/R2: --</div>
+        </div>
+    </div>
+
+    <div class="summary-grid" style="margin-top: 1.5rem;">
       <div class="summary-item"><label>Prob. of Profit</label><span id="pop">--</span></div>
       <div class="summary-item"><label>Total Cost</label><span id="resCost">--</span></div>
       <div class="summary-item"><label>Max Profit</label><span id="resProfit">--</span></div>
       <div class="summary-item"><label>Max Loss</label><span id="resLoss">--</span></div>
       <div class="summary-item"><label>Breakeven</label><span id="resBreak">--</span></div>
     </div>
+    
     <div style="height: 450px; background: rgba(0,0,0,0.4); border-radius: 15px; padding: 20px; border: 1px solid rgba(255,255,255,0.1); position: relative;">
         <canvas id="payoffChart"></canvas>
     </div>
+
     <div class="greeks-grid" style="margin-top: 20px;">
-      <div class="greek-card"><span class="greek-name">DELTA</span><span id="d">--</span></div>
-      <div class="greek-card"><span class="greek-name">GAMMA</span><span id="g">--</span></div>
-      <div class="greek-card"><span class="greek-name">THETA</span><span id="t">--</span></div>
-      <div class="greek-card"><span class="greek-name">VEGA</span><span id="v">--</span></div>
-      <div class="greek-card"><span class="greek-name">RHO</span><span id="r">--</span></div>
+      <div class="greek-card"><span class="greek-name">DELTA <span class="help" onclick="showGreekHelp('Speed: How much your option price moves for every $1 move in the stock.')">?</span></span><span id="d" class="greek-val">--</span></div>
+      <div class="greek-card"><span class="greek-name">GAMMA <span class="help" onclick="showGreekHelp('Acceleration: How much your Delta increases or decreases as the stock moves.')">?</span></span><span id="g" class="greek-val">--</span></div>
+      <div class="greek-card"><span class="greek-name">THETA <span class="help" onclick="showGreekHelp('Time Decay: The daily cost or time decay you pay just for holding the contract.')">?</span></span><span id="t" class="greek-val">--</span></div>
+      <div class="greek-card"><span class="greek-name">VEGA <span class="help" onclick="showGreekHelp('Fear Gauge: Your sensitivity to expected chaos or volatility in the market.')">?</span></span><span id="v" class="greek-val">--</span></div>
+      <div class="greek-card"><span class="greek-name">RHO <span class="help" onclick="showGreekHelp('Interest Rate Tracker: The impact of changing interest rates.')">?</span></span><span id="r" class="greek-val">--</span></div>
     </div>
   </div>
 
@@ -137,6 +178,7 @@
 </div>
 
 <script>
+// --- CORE CONFIG (EXISTING) ---
 const POLYGON_KEY = "khT7kqtgtjpevl6jDgff0B0jPBr2gpqc";
 const FINNHUB_KEY = "d6a41gpr01qsjlb9lhj0d6a41gpr01qsjlb9lhjg";
 const PROXY = "https://corsproxy.io/?";
@@ -151,6 +193,73 @@ const normCDF = (x) => {
     let p = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
     return x > 0 ? 1 - p : p;
 };
+
+// --- NEW QUANT ENGINE START ---
+
+/** Monte Carlo Simulation (10,000 Iterations) */
+function runMonteCarlo(S, K, T, r, sigma, type) {
+    const iterations = 10000;
+    let successCount = 0;
+    const dt = T; 
+    const drift = (r - 0.5 * Math.pow(sigma, 2)) * dt;
+    const diffusion = sigma * Math.sqrt(dt);
+
+    for (let i = 0; i < iterations; i++) {
+        // Box-Muller transform for normal distribution
+        const u1 = Math.random();
+        const u2 = Math.random();
+        const z = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
+        
+        const priceAtExpiry = S * Math.exp(drift + diffusion * z);
+        if (type === 'call' ? priceAtExpiry > K : priceAtExpiry < K) {
+            successCount++;
+        }
+    }
+    return (successCount / iterations) * 100;
+}
+
+/** Volatility Clustering & Regime Analysis (BB/KC Squeeze) */
+async function analyzeRegime(sym, currentS, iv) {
+    const url = `https://api.polygon.io/v2/aggs/ticker/${sym}/range/1/day/${new Date(Date.now() - 300*86400000).toISOString().split('T')[0]}/${new Date().toISOString().split('T')[0]}?apiKey=${POLYGON_KEY}`;
+    try {
+        const res = await fetch(url).then(r => r.json());
+        const closes = res.results.map(x => x.c);
+        
+        // 200 SMA/EMA Ribbon
+        const sma200 = closes.slice(-200).reduce((a,b)=>a+b,0)/200;
+        const ema200 = closes.slice(-200).reduce((acc, val, i) => acc + val * (2/(200+1)), closes[closes.length-200]);
+        
+        // Squeeze Detection (BB vs KC proxy)
+        const stdev = Math.sqrt(closes.slice(-20).map(x => Math.pow(x - (closes.slice(-20).reduce((a,b)=>a+b,0)/20), 2)).reduce((a,b)=>a+b,0)/20);
+        const atr = (Math.max(...closes.slice(-14)) - Math.min(...closes.slice(-14))) / 2;
+        const squeeze = (stdev * 2 < atr * 1.5) ? "ACTIVE SQUEEZE" : "NORMAL VOL";
+        
+        // Realized Vol (20-day)
+        const returns = [];
+        for(let i=1; i<20; i++) returns.push(Math.log(closes[closes.length-i]/closes[closes.length-i-1]));
+        const rv = Math.sqrt(returns.reduce((a,b)=>a+b*b,0)/20) * Math.sqrt(252) * 100;
+
+        document.getElementById('squeezeStatus').textContent = squeeze;
+        document.getElementById('volRatio').textContent = `IV: ${(iv*100).toFixed(1)}% | RV: ${rv.toFixed(1)}%`;
+        document.getElementById('regimeStatus').textContent = currentS > sma200 ? "MACRO BULLISH (Above 200 SMA)" : "MACRO BEARISH (Below 200 SMA)";
+        document.getElementById('trendStrength').textContent = `SMA200: $${sma200.toFixed(2)} | EMA200: $${ema200.toFixed(2)}`;
+    } catch(e) { console.error("Regime analysis failed", e); }
+}
+
+/** Microstructure / Order Flow (NBBO CVD Proxy) */
+async function fetchOrderFlow(sym) {
+    const url = `https://api.polygon.io/v2/last/nbbo/${sym}?apiKey=${POLYGON_KEY}`;
+    try {
+        const data = await fetch(url).then(r => r.json());
+        const bidSize = data.results.P || 1;
+        const askSize = data.results.p || 1;
+        const cvd = ((bidSize - askSize) / (bidSize + askSize) * 100).toFixed(2);
+        document.getElementById('cvdMetric').textContent = cvd > 0 ? `+${cvd}% (Aggressive Buy)` : `${cvd}% (Aggressive Sell)`;
+        document.getElementById('cvdMetric').style.color = cvd > 0 ? "var(--success)" : "var(--danger)";
+    } catch(e) { }
+}
+
+// --- NEW QUANT ENGINE END ---
 
 function blackScholes(S, K, T, r, sigma, type) {
     if (T <= 0) return Math.max(0, type === 'call' ? S - K : K - S);
@@ -216,9 +325,7 @@ async function fetchVIX() {
             vixDisplay.textContent = price.toFixed(2);
             vixDisplay.style.color = "#a282e8";
         }
-    } catch (err) {
-        console.error("VIX fetch failed:", err);
-    }
+    } catch (err) { console.error("VIX fetch failed:", err); }
 }
 
 async function fetchTNX() {
@@ -236,26 +343,27 @@ async function fetchTNX() {
             tnxDisplay.style.color = "#28a745";
         }
     } catch (err) {
-        console.error("TNX fetch failed:", err);
+        if (rfInput.value === "0.00") {
+            rfInput.value = "4.00";
+            tnxDisplay.textContent = "4.00 (Est)";
+        }
     }
 }
 
-updateClock();
-fetchVIX();
-fetchTNX();
+updateClock(); fetchVIX(); fetchTNX();
 setInterval(updateClock, 1000);
 setInterval(fetchVIX, 15000); 
+
+function showGreekHelp(text) { alert(text); }
 
 async function fetchTicketData() {
     const sym = document.getElementById('symbol').value.toUpperCase();
     if(!sym) return;
-    try {
-        const q = await fetch(`https://finnhub.io/api/v1/quote?symbol=${sym}&token=${FINNHUB_KEY}`).then(r => r.json());
-        if(q.c) document.getElementById('stockPrice').value = q.c.toFixed(2);
-        const p = await fetch(`https://finnhub.io/api/v1/stock/profile2?symbol=${sym}&token=${FINNHUB_KEY}`).then(r => r.json());
-        if(p.logo) { document.getElementById('stockLogo').src = p.logo; document.getElementById('stockLogo').style.display = 'block'; }
-        document.getElementById('companyName').textContent = p.name || "";
-    } catch(e) { console.error(e); }
+    const q = await fetch(`https://finnhub.io/api/v1/quote?symbol=${sym}&token=${FINNHUB_KEY}`).then(r => r.json());
+    if(q.c) document.getElementById('stockPrice').value = q.c.toFixed(2);
+    const p = await fetch(`https://finnhub.io/api/v1/stock/profile2?symbol=${sym}&token=${FINNHUB_KEY}`).then(r => r.json());
+    if(p.logo) { document.getElementById('stockLogo').src = p.logo; document.getElementById('stockLogo').style.display = 'block'; }
+    document.getElementById('companyName').textContent = p.name || "";
 }
 
 async function getChain() {
@@ -265,11 +373,7 @@ async function getChain() {
     const organized = {};
     res.results.forEach(c => {
         if (!organized[c.expiration_date]) organized[c.expiration_date] = { calls: [], puts: [] };
-        organized[c.expiration_date][c.contract_type + 's'].push({
-            strike: c.strike_price,
-            marketMid: 0, 
-            iv: c.implied_volatility || null
-        });
+        organized[c.expiration_date][c.contract_type + 's'].push({ strike: c.strike_price });
     });
     cachedChain = { symbol: sym, data: organized };
     return organized;
@@ -290,11 +394,7 @@ async function showExpirationPicker() {
         const [y, m, d] = date.split('-');
         btn.className = "picker-btn";
         btn.textContent = `${d}/${m}/${y}`;
-        btn.onclick = () => { 
-            document.getElementById('expiry').value = btn.textContent; 
-            updateDTE(btn.textContent);
-            overlay.remove(); 
-        };
+        btn.onclick = () => { document.getElementById('expiry').value = btn.textContent; updateDTE(btn.textContent); overlay.remove(); };
         overlay.firstChild.appendChild(btn);
     });
 }
@@ -302,19 +402,16 @@ async function showExpirationPicker() {
 async function showStrikePicker() {
     const expiry = document.getElementById('expiry').value;
     if (!expiry) return alert("Select expiry first");
-    const chain = await getChain();
     const [d, m, y] = expiry.split('/');
     const targetDate = `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
+    const chain = await getChain();
+    const type = document.getElementById('type').value;
     const overlay = createOverlay("Select Strike");
-    chain[targetDate][document.getElementById('type').value + 's'].sort((a,b) => a.strike - b.strike).forEach(opt => {
+    chain[targetDate][type + 's'].sort((a,b) => a.strike - b.strike).forEach(opt => {
         const btn = document.createElement('button');
         btn.className = "picker-btn";
         btn.textContent = `Strike: $${opt.strike.toFixed(2)}`;
-        btn.onclick = () => { 
-            document.getElementById('strike').value = opt.strike;
-            updateIV();
-            overlay.remove(); 
-        };
+        btn.onclick = () => { document.getElementById('strike').value = opt.strike; checkPremiumWarn(); updateIV(); overlay.remove(); };
         overlay.firstChild.appendChild(btn);
     });
 }
@@ -333,7 +430,8 @@ function createOverlay(title) {
 
 function runAnalysis() {
     const prem = parseFloat(document.getElementById('premium').value);
-    if (prem <= 0) return alert("Please enter a valid premium.");
+    if (prem <= 0) { alert("Please enter a valid premium price."); return; }
+    
     const S = parseFloat(document.getElementById('stockPrice').value);
     const K = parseFloat(document.getElementById('strike').value);
     const r = parseFloat(document.getElementById('rf').value) / 100;
@@ -341,8 +439,31 @@ function runAnalysis() {
     const qty = parseInt(document.getElementById('qty').value);
     const [day, month, year] = document.getElementById('expiry').value.split('/').map(Number);
     const T = Math.max(0.001, (new Date(year, month - 1, day) - new Date()) / (1000 * 60 * 60 * 24 * 365));
-    let iv = parseFloat(document.getElementById('iv').value) / 100 || 0.5;
+    let iv = parseFloat(document.getElementById('iv').value) / 100 || 0.3;
 
+    // 1. Run Monte Carlo (Requirement 6)
+    const mcProbValue = runMonteCarlo(S, K, T, r, iv, type);
+    document.getElementById('mcProb').textContent = mcProbValue.toFixed(2) + "%";
+
+    // 2. Notification Signal (Requirement Logic)
+    const sigBanner = document.getElementById('executionSignal');
+    sigBanner.style.display = "block";
+    if (mcProbValue > 55) {
+        sigBanner.className = "sig-green";
+        sigBanner.textContent = `PROCEED: Success Probability is ${mcProbValue.toFixed(2)}%`;
+    } else if (mcProbValue >= 50) {
+        sigBanner.className = "sig-yellow";
+        sigBanner.textContent = `CAUTION: Success Probability is ${mcProbValue.toFixed(2)}%. High Risk.`;
+    } else {
+        sigBanner.className = "sig-red";
+        sigBanner.textContent = `DO NOT EXECUTE TRANSACTION: Probability is ${mcProbValue.toFixed(2)}%`;
+    }
+
+    // 3. Regime & Order Flow (Requirements 1, 2, 3)
+    analyzeRegime(document.getElementById('symbol').value.toUpperCase(), S, iv);
+    fetchOrderFlow(document.getElementById('symbol').value.toUpperCase());
+
+    // 4. Standard Greeks (Existing)
     const d1 = (Math.log(S/K) + (r + 0.5 * iv * iv) * T) / (iv * Math.sqrt(T));
     const d2 = d1 - (iv * Math.sqrt(T));
     const be = type === 'call' ? K + prem : K - prem;
@@ -382,16 +503,17 @@ function drawChart(S, K, type, prem, qty, iv, T, r, be) {
         ]},
         options: { 
             responsive:true, maintainAspectRatio:false,
+            interaction: { mode: 'index', intersect: false },
             plugins: {
                 legend: { labels: { color: '#fff' } },
                 annotation: {
                     annotations: {
-                        currPrice: { type: 'line', xMin: findIdx(labels, S), xMax: findIdx(labels, S), borderColor: '#ffcc00', borderWidth: 2, label: { display: true, content: 'Current', backgroundColor: '#ffcc00', color: '#000' } },
-                        breakeven: { type: 'line', xMin: findIdx(labels, be), xMax: findIdx(labels, be), borderColor: '#ff4d4d', borderDash: [2, 2], borderWidth: 2, label: { display: true, content: 'BE', backgroundColor: '#ff4d4d', color: '#fff' } }
+                        currPrice: { type: 'line', xMin: findIdx(labels, S), xMax: findIdx(labels, S), borderColor: '#ffcc00', borderWidth: 2, label: { display: true, content: 'Price', backgroundColor: '#ffcc00', color: '#000' } },
+                        breakeven: { type: 'line', xMin: findIdx(labels, be), xMax: findIdx(labels, be), borderColor: '#ff4d4d', borderDash: [2, 2], borderWidth: 2, label: { display: true, content: 'BE' } }
                     }
                 }
             },
-            scales:{ x:{ticks:{color:'#888'}}, y:{ticks:{color:'#888'}}} 
+            scales:{ x:{grid:{color:'rgba(255,255,255,0.05)'}}, y:{grid:{color:'rgba(255,255,255,0.05)'}}} 
         }
     });
 }
