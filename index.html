@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>Options Probability Calculator | VIX & TNX</title>
+    <title>Options Probability Calculator | VIX & TNX - Enhanced</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@2.0.1"></script>
     <style>
@@ -12,6 +12,123 @@
         .container { background: var(--glass); backdrop-filter: blur(15px); padding: 2.5rem; border-radius: 20px; border: 1px solid rgba(255, 255, 255, 0.1); box-shadow: 0 12px 50px rgba(0,0,0,0.8); }
         .vix-banner { display: flex; justify-content: space-between; align-items: center; background: linear-gradient(90deg, rgba(111, 66, 193, 0.1), rgba(0, 123, 255, 0.1)); padding: 1rem 1.5rem; border-radius: 12px; margin-bottom: 2rem; border: 1px solid rgba(255, 255, 255, 0.1); }
         .vix-val { font-size: 1.5rem; font-weight: bold; color: #a282e8; }
+        
+        /* NEW: Last Trade Display Panel */
+        .last-trade-panel {
+            background: linear-gradient(135deg, rgba(40, 167, 69, 0.15), rgba(0, 123, 255, 0.1));
+            border: 1px solid rgba(40, 167, 69, 0.3);
+            border-radius: 12px;
+            padding: 1.2rem;
+            margin-bottom: 1.5rem;
+            display: none;
+        }
+        .last-trade-panel.active { display: block; }
+        .panel-title {
+            font-size: 0.75rem;
+            color: #4db8ff;
+            text-transform: uppercase;
+            font-weight: bold;
+            margin-bottom: 0.8rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .api-badge {
+            background: rgba(40, 167, 69, 0.3);
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.6rem;
+            color: #28a745;
+            border: 1px solid rgba(40, 167, 69, 0.5);
+        }
+        .trade-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1rem;
+        }
+        .trade-item {
+            text-align: center;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 0.8rem;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .trade-label {
+            font-size: 0.65rem;
+            color: #888;
+            text-transform: uppercase;
+            margin-bottom: 0.3rem;
+        }
+        .trade-value {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #28a745;
+        }
+        .trade-value.exchange {
+            color: #4db8ff;
+            font-size: 0.9rem;
+        }
+        
+        /* NEW: Chain Snapshot Panel */
+        .chain-snapshot {
+            background: linear-gradient(135deg, rgba(111, 66, 193, 0.15), rgba(255, 77, 77, 0.1));
+            border: 1px solid rgba(111, 66, 193, 0.3);
+            border-radius: 12px;
+            padding: 1.2rem;
+            margin-bottom: 1.5rem;
+            display: none;
+        }
+        .chain-snapshot.active { display: block; }
+        .chain-header {
+            font-size: 0.9rem;
+            font-weight: bold;
+            color: #a282e8;
+            margin-bottom: 0.8rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .pcr-display {
+            background: rgba(0, 0, 0, 0.4);
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            border: 1px solid rgba(111, 66, 193, 0.5);
+        }
+        .pcr-label {
+            font-size: 0.65rem;
+            color: #888;
+            text-transform: uppercase;
+        }
+        .pcr-value {
+            font-size: 1.4rem;
+            font-weight: bold;
+            color: #a282e8;
+        }
+        .chain-table {
+            width: 100%;
+            font-size: 0.75rem;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+        .chain-table th {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 0.6rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            color: #4db8ff;
+            font-size: 0.7rem;
+        }
+        .chain-table td {
+            padding: 0.5rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            text-align: center;
+        }
+        .call-row { color: #28a745; }
+        .put-row { color: #ff6b6b; }
+        .highlight-row {
+            background: rgba(255, 255, 255, 0.05);
+            font-weight: bold;
+        }
+        
         .grid-form { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.2rem; }
         .ticket-row { display: flex; gap: 0.5rem; align-items: flex-end !important; grid-column: span 2; }
         label { display: block; margin-bottom: 0.3rem; font-weight: 600; font-size: 0.85rem; color: #bbb; }
@@ -20,6 +137,8 @@
         button { padding: 0.85rem; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.3s; }
         .btn-fetch { background: var(--success); color: white; }
         .btn-calc { background: var(--primary); color: white; width: 100%; font-size: 1.1rem; grid-column: span 2; margin-top: 10px; }
+        .btn-snapshot { background: var(--accent); color: white; padding: 0.7rem 1rem; font-size: 0.85rem; }
+        .btn-snapshot:hover { background: #8b5fcf; }
         .picker-btn { display:block; width:100%; margin:5px 0; padding:10px; background:#333; color:white; border:1px solid #555; border-radius:6px; cursor:pointer; text-align:left; }
         #results { margin-top: 2.5rem; display: none; border-top: 1px solid rgba(255,255,255,0.2); padding-top: 2rem; }
         .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
@@ -30,6 +149,7 @@
         .dte-badge { font-size: 0.75rem; color: #ffd700; font-weight: bold; margin-left: 10px; }
         footer { margin-top: 3rem; text-align: center; font-size: 0.7rem; color: #666; line-height: 1.5; }
         .help { cursor: pointer; background: #4db8ff; color: #fff; border-radius: 50%; padding: 0 4px; font-size: 0.6rem; margin-left: 5px; }
+        .loading { opacity: 0.5; pointer-events: none; }
     </style>
 </head>
 <body>
@@ -44,6 +164,64 @@
                 <div style="font-size: 0.65rem; color: #888;">10Y Treasury: <span id="tnxVal" style="color:#28a745; font-weight:bold;">--</span>%</div>
             </div>
         </div>
+
+        <!-- NEW: Last Trade Panel (Polygon.io /v2/last/trade/stocks/{ticker}) -->
+        <div id="lastTradePanel" class="last-trade-panel">
+            <div class="panel-title">
+                <span>📊 Last Trade Data</span>
+                <span class="api-badge">Polygon.io API</span>
+            </div>
+            <div class="trade-grid">
+                <div class="trade-item">
+                    <div class="trade-label">Last Price</div>
+                    <div class="trade-value" id="lastTradePrice">--</div>
+                </div>
+                <div class="trade-item">
+                    <div class="trade-label">Volume</div>
+                    <div class="trade-value" id="lastTradeVolume">--</div>
+                </div>
+                <div class="trade-item">
+                    <div class="trade-label">Timestamp</div>
+                    <div class="trade-value exchange" id="lastTradeTime">--</div>
+                </div>
+                <div class="trade-item">
+                    <div class="trade-label">Exchange</div>
+                    <div class="trade-value exchange" id="lastTradeExchange">--</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- NEW: Chain Snapshot Panel (Polygon.io /v3/snapshot/options/{underlyingAsset}) -->
+        <div id="chainSnapshotPanel" class="chain-snapshot">
+            <div class="chain-header">
+                <div>
+                    <div class="panel-title">
+                        <span>📈 Options Chain Snapshot</span>
+                        <span class="api-badge">Polygon.io API</span>
+                    </div>
+                </div>
+                <div class="pcr-display">
+                    <div class="pcr-label">Put/Call Ratio</div>
+                    <div class="pcr-value" id="pcrSnapshot">--</div>
+                </div>
+            </div>
+            <table class="chain-table">
+                <thead>
+                    <tr>
+                        <th>Strike</th>
+                        <th>Type</th>
+                        <th>Last Price</th>
+                        <th>Change %</th>
+                        <th>Volume</th>
+                        <th>IV</th>
+                    </tr>
+                </thead>
+                <tbody id="chainTableBody">
+                    <tr><td colspan="6" style="color: #888;">Click "Fetch Chain Snapshot" to load data</td></tr>
+                </tbody>
+            </table>
+        </div>
+
         <h1 style="text-align:center; margin-top:0; letter-spacing: 1px;">Options Probability Calculator</h1>
         <form id="optionForm" class="grid-form">
             <div class="ticket-row">
@@ -56,6 +234,7 @@
                     <input type="text" id="symbol" placeholder="e.g. NVDA" oninput="clearCache()" />
                 </div>
                 <button type="button" class="btn-fetch" onclick="fetchTicketData()">Fetch Price</button>
+                <button type="button" class="btn-snapshot" onclick="fetchChainSnapshot()">Fetch Chain Snapshot</button>
             </div>
             <div><label>Stock Price ($)</label><input type="number" id="stockPrice" step="0.01" /></div>
             <div><label>Contracts (Qty)</label><input type="number" id="qty" value="1" /></div>
@@ -79,12 +258,12 @@
             <div>
                 <label>Paid Premium Price</label>
                 <input type="number" id="paidPremium" step="0.01" value="0.00" oninput="checkPaidWarn()" />
-                <div id="paidWarn" class="warning-box"> Please enter a valid paid premium.</div>
+                <div id="paidWarn" class="warning-box">⚠️ Please enter a valid paid premium.</div>
             </div>
             <div>
                 <label>Current Premium Price</label>
                 <input type="number" id="currentPremium" step="0.01" value="0.00" style="border: 2px solid #ccc;" oninput="checkPremiumWarn(); updateIV()"/>
-                <div id="premWarning" class="warning-box"> Market price not found. Please enter manually.</div>
+                <div id="premWarning" class="warning-box">⚠️ Market price not found. Please enter manually.</div>
             </div>
             <div><label>Implied Volatility (%)</label><input type="number" id="iv" readonly /></div>
             <button type="button" class="btn-calc" onclick="runAnalysis()">Run Full Analysis</button>
@@ -114,8 +293,7 @@
             </div>
         </div>
         <footer>
-            &copy; 2026 Options Probability Calculator. All rights reserved.
- Licensed under the MIT License. Data provided for educational purposes only.
+            &copy; 2026 Options Probability Calculator. All rights reserved.<br> Licensed under the MIT License. Data provided for educational purposes only.
         </footer>
     </div>
     <script>
@@ -124,6 +302,8 @@
         const PROXY = "https://corsproxy.io/?";
         let payoffChart = null;
         let cachedChain = null;
+        let lastTradeData = null;
+        
         const normPDF = (x) => Math.exp(-0.5 * x * x) / Math.sqrt(2 * Math.PI);
         const normCDF = (x) => {
             const t = 1 / (1 + 0.2316419 * Math.abs(x));
@@ -131,12 +311,14 @@
             let p = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
             return x > 0 ? 1 - p : p;
         };
+        
         function blackScholes(S, K, T, r, sigma, type) {
             if (T <= 0) return Math.max(0, type === 'call' ? S - K : K - S);
             const d1 = (Math.log(S / K) + (r + 0.5 * sigma * sigma) * T) / (sigma * Math.sqrt(T));
             const d2 = d1 - sigma * Math.sqrt(T);
             return type === 'call' ? S * normCDF(d1) - K * Math.exp(-r * T) * normCDF(d2) : K * Math.exp(-r * T) * normCDF(-d2) - S * normCDF(-d1);
         }
+        
         function calculateIV(S, K, T, r, prem, type) {
             let low = 0.001, high = 5.0, mid;
             for (let i = 0; i < 100; i++) {
@@ -147,12 +329,14 @@
             }
             return mid * 100;
         }
+        
         function gaussianRandom() {
             let u = 0, v = 0;
             while (u === 0) u = Math.random();
             while (v === 0) v = Math.random();
             return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
         }
+        
         function calculatePoPMC(S, K, T, r, sigma, type, prem, iterations = 100000) {
             let count = 0;
             const drift = (r - 0.5 * sigma * sigma) * T;
@@ -165,6 +349,198 @@
             }
             return (count / iterations) * 100;
         }
+
+        // ========== POLYGON.IO EXAMPLE #1: Last Trade Implementation ==========
+        // Implements: const response = await rest.getLastStocksTrade("AAPL");
+        // Endpoint: /v2/last/trade/stocks/{ticker}
+        async function getLastStocksTrade(ticker) {
+            try {
+                const url = `https://api.polygon.io/v2/last/trade/stocks/${ticker}?apiKey=${POLYGON_KEY}`;
+                console.log('Fetching last trade for:', ticker);
+                
+                const response = await fetch(PROXY + encodeURIComponent(url));
+                const data = await response.json();
+                
+                console.log('Last Trade Response:', data);
+                
+                if (data.status === 'OK' && data.results) {
+                    return data.results;
+                }
+                return null;
+            } catch (error) {
+                console.error('Last trade fetch failed:', error);
+                return null;
+            }
+        }
+
+        // ========== POLYGON.IO EXAMPLE #2: Options Chain Snapshot Implementation ==========
+        // Implements: const response = await rest.getOptionsChain({ underlyingAsset: "A", order: "asc", limit: "10", sort: "ticker" });
+        // Endpoint: /v3/snapshot/options/{underlyingAsset}
+        async function getOptionsChain(underlyingAsset, options = {}) {
+            try {
+                const params = new URLSearchParams({
+                    ...options,
+                    apiKey: POLYGON_KEY
+                });
+                
+                const url = `https://api.polygon.io/v3/snapshot/options/${underlyingAsset}?${params}`;
+                console.log('Fetching options chain snapshot for:', underlyingAsset);
+                
+                const response = await fetch(PROXY + encodeURIComponent(url));
+                const data = await response.json();
+                
+                console.log('Options Chain Response:', data);
+                
+                if (data.status === 'OK' && data.results) {
+                    return data.results;
+                }
+                return null;
+            } catch (error) {
+                console.error('Options chain fetch failed:', error);
+                return null;
+            }
+        }
+
+        // Display last trade data in the panel
+        function displayLastTradeData(tradeData) {
+            if (!tradeData) return;
+            
+            const panel = document.getElementById('lastTradePanel');
+            panel.classList.add('active');
+            
+            document.getElementById('lastTradePrice').textContent = `$${tradeData.p?.toFixed(2) || '--'}`;
+            document.getElementById('lastTradeVolume').textContent = tradeData.s?.toLocaleString() || '--';
+            
+            // Format timestamp (Polygon uses nanoseconds)
+            if (tradeData.t) {
+                const date = new Date(tradeData.t / 1000000);
+                document.getElementById('lastTradeTime').textContent = date.toLocaleTimeString();
+            }
+            
+            // Exchange code mapping
+            const exchanges = {
+                1: 'NYSE', 2: 'NASDAQ', 3: 'AMEX', 4: 'ARCA', 
+                5: 'BATS', 6: 'IEX', 11: 'EDGX', 12: 'EDGA'
+            };
+            document.getElementById('lastTradeExchange').textContent = exchanges[tradeData.x] || `Code ${tradeData.x}`;
+            
+            lastTradeData = tradeData;
+        }
+
+        // Calculate Put/Call Ratio from options chain snapshot
+        function calculatePCRFromSnapshot(optionsData) {
+            if (!optionsData || optionsData.length === 0) return 0;
+            
+            let putVolume = 0;
+            let callVolume = 0;
+            
+            optionsData.forEach(option => {
+                const details = option.details;
+                const dayData = option.day;
+                
+                if (!details || !dayData) return;
+                
+                if (details.contract_type === 'put') {
+                    putVolume += dayData.volume || 0;
+                } else if (details.contract_type === 'call') {
+                    callVolume += dayData.volume || 0;
+                }
+            });
+            
+            console.log(`PCR Calculation - Put Volume: ${putVolume}, Call Volume: ${callVolume}`);
+            
+            return callVolume > 0 ? (putVolume / callVolume) : 0;
+        }
+
+        // Display options chain snapshot in table
+        function displayChainSnapshot(optionsData, currentStrike) {
+            if (!optionsData || optionsData.length === 0) {
+                document.getElementById('chainTableBody').innerHTML = 
+                    '<tr><td colspan="6" style="color: #ff6b6b;">No data available</td></tr>';
+                return;
+            }
+            
+            const panel = document.getElementById('chainSnapshotPanel');
+            panel.classList.add('active');
+            
+            // Calculate and display PCR
+            const pcr = calculatePCRFromSnapshot(optionsData);
+            document.getElementById('pcrSnapshot').textContent = pcr.toFixed(3);
+            
+            // Sort by strike price and limit to top 10
+            const sorted = optionsData
+                .filter(opt => opt.details && opt.day)
+                .sort((a, b) => a.details.strike_price - b.details.strike_price)
+                .slice(0, 10);
+            
+            const tableBody = document.getElementById('chainTableBody');
+            tableBody.innerHTML = '';
+            
+            sorted.forEach(option => {
+                const details = option.details;
+                const last = option.last_quote || {};
+                const day = option.day || {};
+                
+                const row = document.createElement('tr');
+                const isHighlight = currentStrike && Math.abs(details.strike_price - currentStrike) < 0.01;
+                
+                row.className = details.contract_type === 'call' ? 'call-row' : 'put-row';
+                if (isHighlight) row.classList.add('highlight-row');
+                
+                const changePercent = day.change_percent || 0;
+                const changeColor = changePercent >= 0 ? '#28a745' : '#ff6b6b';
+                
+                row.innerHTML = `
+                    <td>$${details.strike_price?.toFixed(2) || '--'}</td>
+                    <td>${details.contract_type?.toUpperCase() || '--'}</td>
+                    <td>$${last.last_price?.toFixed(2) || '--'}</td>
+                    <td style="color: ${changeColor}">${changePercent >= 0 ? '+' : ''}${changePercent?.toFixed(2) || '0'}%</td>
+                    <td>${day.volume?.toLocaleString() || '0'}</td>
+                    <td>${option.implied_volatility ? (option.implied_volatility * 100).toFixed(1) + '%' : '--'}</td>
+                `;
+                
+                tableBody.appendChild(row);
+            });
+        }
+
+        // Main function to fetch chain snapshot (called by button)
+        async function fetchChainSnapshot() {
+            const sym = document.getElementById('symbol').value.toUpperCase();
+            if (!sym) {
+                alert('Please enter a ticker symbol first');
+                return;
+            }
+            
+            const btn = event.target;
+            btn.classList.add('loading');
+            btn.textContent = 'Loading...';
+            
+            try {
+                // Fetch options chain snapshot using Example #2 pattern
+                const chainData = await getOptionsChain(sym, {
+                    order: 'asc',
+                    limit: '50',
+                    sort: 'strike_price'
+                });
+                
+                const currentStrike = parseFloat(document.getElementById('strike').value);
+                displayChainSnapshot(chainData, currentStrike);
+                
+                // Also fetch last trade if not already done
+                if (!lastTradeData) {
+                    const tradeData = await getLastStocksTrade(sym);
+                    displayLastTradeData(tradeData);
+                }
+                
+            } catch (error) {
+                console.error('Error fetching chain snapshot:', error);
+                alert('Failed to fetch chain snapshot. Please try again.');
+            } finally {
+                btn.classList.remove('loading');
+                btn.textContent = 'Fetch Chain Snapshot';
+            }
+        }
+        
         function updateIV() {
             const S = parseFloat(document.getElementById('stockPrice').value);
             const K = parseFloat(document.getElementById('strike').value);
@@ -181,6 +557,7 @@
             const iv = calculateIV(S, K, T, r, prem, type).toFixed(2);
             document.getElementById('iv').value = iv;
         }
+        
         function checkPremiumWarn() {
             const p = parseFloat(document.getElementById('currentPremium').value);
             const warn = document.getElementById('premWarning');
@@ -194,6 +571,7 @@
             }
             updateIV();
         }
+        
         function checkPaidWarn() {
             const p = parseFloat(document.getElementById('paidPremium').value);
             const warn = document.getElementById('paidWarn');
@@ -203,9 +581,11 @@
                 warn.style.display = 'none';
             }
         }
+        
         function updateClock() {
             document.getElementById('vixTime').textContent = "Live Sync: " + new Date().toLocaleTimeString();
         }
+        
         async function fetchVIX() {
             const vixDisplay = document.getElementById('vixVal');
             const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/^VIX`;
@@ -222,6 +602,7 @@
                 vixDisplay.textContent = "Error";
             }
         }
+        
         async function fetchTNX() {
             const tnxDisplay = document.getElementById('tnxVal');
             const rfInput = document.getElementById('rf');
@@ -244,21 +625,37 @@
                 }
             }
         }
+        
         updateClock();
         fetchVIX();
         fetchTNX();
         setInterval(updateClock, 1000);
         setInterval(fetchVIX, 15000);
         setInterval(fetchTNX, 86400000);
+        
         function showGreekHelp(text) {
             alert(text);
         }
+        
         async function fetchTicketData() {
             const sym = document.getElementById('symbol').value.toUpperCase();
             if(!sym) return;
-            const qUrl = `https://finnhub.io/api/v1/quote?symbol=${sym}&token=${FINNHUB_KEY}`;
-            const q = await fetch(PROXY + encodeURIComponent(qUrl)).then(r => r.json());
-            if(q.c) document.getElementById('stockPrice').value = q.c.toFixed(2);
+            
+            // Fetch last trade data using Polygon.io Example #1
+            const tradeData = await getLastStocksTrade(sym);
+            displayLastTradeData(tradeData);
+            
+            // Update stock price from last trade
+            if (tradeData && tradeData.p) {
+                document.getElementById('stockPrice').value = tradeData.p.toFixed(2);
+            } else {
+                // Fallback to Finnhub
+                const qUrl = `https://finnhub.io/api/v1/quote?symbol=${sym}&token=${FINNHUB_KEY}`;
+                const q = await fetch(PROXY + encodeURIComponent(qUrl)).then(r => r.json());
+                if(q.c) document.getElementById('stockPrice').value = q.c.toFixed(2);
+            }
+            
+            // Fetch company profile
             const pUrl = `https://finnhub.io/api/v1/stock/profile2?symbol=${sym}&token=${FINNHUB_KEY}`;
             const p = await fetch(PROXY + encodeURIComponent(pUrl)).then(r => r.json());
             if(p.logo) {
@@ -267,6 +664,7 @@
             }
             document.getElementById('companyName').textContent = p.name || "";
         }
+        
         async function getChain() {
             const sym = document.getElementById('symbol').value.toUpperCase();
             if (cachedChain && cachedChain.symbol === sym) return cachedChain.data;
@@ -284,12 +682,14 @@
             cachedChain = { symbol: sym, data: organized };
             return organized;
         }
+        
         function updateDTE(expiryStr) {
             const [d, m, y] = expiryStr.split('/');
             const expDate = new Date(y, m - 1, d);
             const diff = Math.ceil((expDate - new Date()) / (1000 * 60 * 60 * 24));
             document.getElementById('dteLabel').textContent = diff >= 0 ? `(${diff} Days Left)` : "(Expired)";
         }
+        
         async function showExpirationPicker() {
             const chain = await getChain();
             const overlay = createOverlay("Select Expiry");
@@ -306,6 +706,7 @@
                 overlay.firstChild.appendChild(btn);
             });
         }
+        
         async function showStrikePicker() {
             const expiry = document.getElementById('expiry').value;
             if (!expiry) return alert("Select expiry first");
@@ -339,6 +740,7 @@
                 overlay.firstChild.appendChild(btn);
             });
         }
+        
         function createOverlay(title) {
             const div = document.createElement('div');
             div.style.cssText = "position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:100; display:flex; align-items:center; justify-content:center;";
@@ -350,6 +752,7 @@
             div.onclick = (e) => { if (e.target === div) div.remove(); };
             return div;
         }
+        
         async function fetchHistorical(sym) {
             const to = new Date().toISOString().split('T')[0];
             const from = new Date(new Date().getTime() - 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
@@ -363,83 +766,108 @@
                 return [];
             }
         }
+        
         function avg(arr) {
             return arr.reduce((a, b) => a + b, 0) / arr.length;
         }
+        
         function std(arr) {
             const mean = avg(arr);
             const variance = arr.reduce((a, b) => a + (b - mean) ** 2, 0) / arr.length;
             return Math.sqrt(variance);
         }
+        
+        // Enhanced PCR using Options Chain Snapshot (Example #2)
         async function fetchPutCallRatio(sym) {
-    try {
-        let putVol = 0;
-        let callVol = 0;
-        let nextUrl = `https://api.polygon.io/v3/snapshot/options/${sym}?limit=1000&apiKey=${POLYGON_KEY}`;
-
-    while (nextUrl) {
-        const response = await fetch(PROXY + encodeURIComponent(nextUrl));
-        const data = await response.json();
-        
-        if (!data.results) {
-            console.warn('No options snapshot data available');
-            break;
-        }
-        
-        data.results.forEach(opt => {
-            const volume = opt.day?.volume || 0;
-            if (opt.details.contract_type === 'call') {
-                callVol += volume;
-            } else if (opt.details.contract_type === 'put') {
-                putVol += volume;
+            // Use Polygon.io snapshot API for PCR
+            const chainData = await getOptionsChain(sym, { limit: '100' });
+            if (chainData) {
+                return calculatePCRFromSnapshot(chainData);
             }
-        });
-        
-        nextUrl = data.next_url ? `${data.next_url}&apiKey=${POLYGON_KEY}` : null;
-    }
-    
-    console.log(`Put Vol: ${putVol}, Call Vol: ${callVol}`);
-    
-    const ratio = callVol > 0 ? (putVol / callVol) : 0;
-    return ratio;
-} catch (err) {
-    console.error("Put/Call ratio fetch failed:", err);
-    return 0;
-}}
-       async function fetchCVD(sym) {
-    try {
-        const today = new Date();
-        const yesterday = new Date(today);
-        yesterday.setDate(yesterday.getDate() - 1);    const fromDate = yesterday.toISOString().split('T')[0];
-    const toDate = today.toISOString().split('T')[0];
-    
-    const url = `https://api.polygon.io/v2/aggs/ticker/${sym}/range/5/minute/${fromDate}/${toDate}?apiKey=${POLYGON_KEY}`;
-    
-    const response = await fetch(PROXY + encodeURIComponent(url));
-    const data = await response.json();
-    
-    if (!data.results) {
-        console.warn('No aggregate data available for CVD');
-        return 0;
-    }
-    
-    let cvd = 0;
-    const closes = data.results.map(r => r.c);
-    const volumes = data.results.map(r => r.v);
-    
-    for (let i = 1; i < closes.length; i++) {
-        if (closes[i] != null && closes[i-1] != null && volumes[i] != null) {
-            const direction = closes[i] > closes[i-1] ? 1 : (closes[i] < closes[i-1] ? -1 : 0);
-            cvd += volumes[i] * direction;
+            
+            // Fallback to Yahoo Finance
+            try {
+                const url = `https://query1.finance.yahoo.com/v7/finance/options/${sym}`;
+                const response = await fetch(PROXY + encodeURIComponent(url));
+                const data = await response.json();
+                
+                if (!data.optionChain?.result?.[0]?.options?.[0]) {
+                    console.warn('No options data available for P/C ratio');
+                    return 0;
+                }
+                
+                const options = data.optionChain.result[0].options[0];
+                let putVol = 0, callVol = 0;
+                
+                if (options.calls) {
+                    options.calls.forEach(c => callVol += (c.volume || 0));
+                }
+                
+                if (options.puts) {
+                    options.puts.forEach(p => putVol += (p.volume || 0));
+                }
+                
+                const ratio = callVol > 0 ? (putVol / callVol) : 0;
+                return ratio;
+            } catch (err) {
+                console.error("Put/Call ratio fetch failed:", err);
+                return 0;
+            }
         }
-    }
-    
-    console.log(`CVD calculated: ${cvd}`);
-    return cvd;
-} catch (err) {
-    console.error("CVD fetch failed:", err);
-    return 0;
-}}
+        
+        // Enhanced CVD calculation using Last Trade data (Example #1)
+        async function fetchCVD(sym) {
+            try {
+                let cvd = 0;
+                
+                // Get intraday data from Yahoo
+                const now = Math.floor(Date.now() / 1000);
+                const start = now - 86400;
+                const url = `https://query1.finance.yahoo.com/v8/finance/chart/${sym}?interval=5m&period1=${start}&period2=${now}`;
+                
+                const response = await fetch(PROXY + encodeURIComponent(url));
+                const data = await response.json();
+                
+                if (!data.chart?.result?.[0]) {
+                    console.warn('No intraday data available for CVD');
+                    return 0;
+                }
+                
+                const result = data.chart.result[0];
+                const quote = result.indicators.quote[0];
+                const closes = quote.close;
+                const volumes = quote.volume;
+                
+                if (!closes || !volumes) {
+                    console.warn('Missing price or volume data');
+                    return 0;
+                }
+                
+                for (let i = 1; i < closes.length; i++) {
+                    if (closes[i] != null && closes[i-1] != null && volumes[i] != null) {
+                        const direction = closes[i] > closes[i-1] ? 1 : (closes[i] < closes[i-1] ? -1 : 0);
+                        cvd += volumes[i] * direction;
+                    }
+                }
+                
+                // If we have last trade data from Polygon.io, add it as the most recent point
+                if (lastTradeData && lastTradeData.p && lastTradeData.s) {
+                    const lastClose = closes[closes.length - 1];
+                    if (lastClose) {
+                        const direction = lastTradeData.p > lastClose ? 1 : (lastTradeData.p < lastClose ? -1 : 0);
+                        cvd += lastTradeData.s * direction;
+                        console.log('Added last trade to CVD calculation:', lastTradeData.s * direction);
+                    }
+                }
+                
+                console.log(`CVD calculated: ${cvd.toFixed(0)}`);
+                return cvd;
+            } catch (err) {
+                console.error("CVD fetch failed:", err);
+                return 0;
+            }
+        }
+        
         async function runAnalysis() {
             const paidPrem = parseFloat(document.getElementById('paidPremium').value);
             const currentPrem = parseFloat(document.getElementById('currentPremium').value);
@@ -468,14 +896,14 @@
             const std20 = std(last20);
             const bbWidth = (4 * std20 / sma20) * 100;
             document.getElementById('bbw').textContent = bbWidth.toFixed(2);
-            // Keltner placeholder (simplified)
+            
             let trs = [];
             for (let i = 1; i < hist.length; i++) {
                 const tr = Math.max(hist[i].high - hist[i].low, Math.abs(hist[i].high - hist[i - 1].close), Math.abs(hist[i].low - hist[i - 1].close));
                 trs.push(tr);
             }
             const atr14 = avg(trs.slice(-14));
-            // EMA for Keltner mid
+            
             function calculateEMA(prices, period) {
                 const k = 2 / (period + 1);
                 let emaArr = [avg(prices.slice(0, period))];
@@ -497,20 +925,20 @@
             if (iv * 100 > rv) {
                 volNote += 'IV > RV, potential institutional positioning. ';
             }
-            // ATR expansion
+            
             const lastTR = Math.max(hist[hist.length - 1].high - hist[hist.length - 1].low, Math.abs(hist[hist.length - 1].high - hist[hist.length - 2].close), Math.abs(hist[hist.length - 1].low - hist[hist.length - 2].close));
             if (lastTR > atr14 * 1.5) {
                 volNote += 'ATR expansion confirmed. ';
             }
-            // Put/Call Ratio
+            
+            // Use enhanced PCR from Options Chain Snapshot
             const pcr = await fetchPutCallRatio(sym);
-document.getElementById('pcr').textContent = pcr.toFixed(2);        // CVD
-        const cvd = await fetchCVD(sym);document.getElementById('cvd').textContent = cvd.toFixed(2);
-            // Market regime placeholder (add more as needed)
-            const adx = 20; // Placeholder calculation for ADX
-            // Macro placeholder
-            // Backtesting placeholder (simulate historical trades)
-            // Monte Carlo for PoP
+            document.getElementById('pcr').textContent = pcr.toFixed(2);
+            
+            // Use enhanced CVD with Last Trade data
+            const cvd = await fetchCVD(sym);
+            document.getElementById('cvd').textContent = cvd.toFixed(0);
+            
             const pop = calculatePoPMC(S, K, T, r, iv, type, paidPrem);
             const popVal = pop;
             document.getElementById('pop').textContent = pop.toFixed(1) + "%";
@@ -526,17 +954,17 @@ document.getElementById('pcr').textContent = pcr.toFixed(2);        // CVD
             document.getElementById('v').textContent = (S * Math.sqrt(T) * normPDF(d1) / 100).toFixed(3);
             const d2 = d1 - (iv * Math.sqrt(T));
             document.getElementById('r').textContent = ((type === 'call' ? K * T * Math.exp(-r * T) * normCDF(d2) : -K * T * Math.exp(-r * T) * normCDF(-d2)) / 100).toFixed(3);
-            // Notification
+            
             const notif = document.getElementById('notification');
             let message;
             if (popVal > 55) {
-                message = Probability of Success: ${popVal.toFixed(1)}%;
+                message = `Probability of Success: ${popVal.toFixed(1)}%`;
                 notif.style.color = '#28a745';
             } else if (popVal >= 50) {
-                message = Take Caution: Probability of Success: ${popVal.toFixed(1)}%;
+                message = `Take Caution: Probability of Success: ${popVal.toFixed(1)}%`;
                 notif.style.color = '#ffd700';
             } else {
-                message = Do Not Execute Transaction: Probability of Success: ${popVal.toFixed(1)}%;
+                message = `Do Not Execute Transaction: Probability of Success: ${popVal.toFixed(1)}%`;
                 notif.style.color = '#ff4d4d';
             }
             let marginNote = '';
@@ -547,6 +975,7 @@ document.getElementById('pcr').textContent = pcr.toFixed(2);        // CVD
             document.getElementById('results').style.display = 'block';
             drawChart(S, K, type, paidPrem, qty, iv, T, r, be, currentPrem);
         }
+        
         function drawChart(S, K, type, paidPrem, qty, iv, T, r, be, currentPrem) {
             const ctx = document.getElementById('payoffChart').getContext('2d');
             const labels = [], expData = [], nowData = [];
@@ -573,7 +1002,7 @@ document.getElementById('pcr').textContent = pcr.toFixed(2);        // CVD
                     interaction: { mode: 'index', intersect: false },
                     plugins: {
                         legend: { labels: { color: '#fff' } },
-                        tooltip: { callbacks: { label: (ctx) => ${ctx.dataset.label}: $${parseFloat(ctx.raw).toFixed(2)} }, backgroundColor: 'rgba(0,0,0,0.8)', titleColor: '#4db8ff', bodyColor: '#fff', borderColor: '#4db8ff', borderWidth: 1 },
+                        tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: $${parseFloat(ctx.raw).toFixed(2)}` }, backgroundColor: 'rgba(0,0,0,0.8)', titleColor: '#4db8ff', bodyColor: '#fff', borderColor: '#4db8ff', borderWidth: 1 },
                         annotation: {
                             annotations: {
                                 currPrice: { type: 'line', xMin: findIdx(labels, S), xMax: findIdx(labels, S), borderColor: '#ffcc00', borderWidth: 2, label: { display: true, content: 'Current Price', backgroundColor: '#ffcc00', color: '#000', yAdjust: -20 } },
@@ -585,13 +1014,16 @@ document.getElementById('pcr').textContent = pcr.toFixed(2);        // CVD
                 }
             });
         }
+        
         function findIdx(arr, target) {
             let closest = arr.reduce((prev, curr) => Math.abs(curr - target) < Math.abs(prev - target) ? curr : prev);
             return arr.indexOf(closest);
         }
+        
         function clearCache() {
             cachedChain = null;
+            lastTradeData = null;
         }
-    </script></body>
+    </script>
+</body>
 </html>
-
