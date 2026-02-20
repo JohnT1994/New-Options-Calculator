@@ -370,64 +370,81 @@
             const variance = arr.reduce((a, b) => a + (b - mean) ** 2, 0) / arr.length;
             return Math.sqrt(variance);
         }
-        async function fetchPutCallRatioYahoo(sym) {
-            try {
-                const url = `https://query1.finance.yahoo.com/v7/finance/options/${sym}`;
-                const response = await fetch(PROXY + encodeURIComponent(url));
-                const data = await response.json();
-                
-                if (!data.optionChain?.result?.[0]?.options?.[0]) {
-                    console.warn('No options data available');
-                    return 0;
-                }
-                
-                const options = data.optionChain.result[0].options[0];
-                let putVol = 0, callVol = 0;
-                
-                options.calls?.forEach(c => callVol += c.volume || 0);
-                options.puts?.forEach(p => putVol += p.volume || 0);
-                
-                const ratio = callVol > 0 ? putVol / callVol : 0;
-                console.log(`P/C Ratio: ${ratio.toFixed(2)} (Put: ${putVol}, Call: ${callVol})`);
-                return ratio;
-            } catch (err) {
-                console.error("P/C Ratio error:", err);
-                return 0;
+        async function fetchPutCallRatio(sym) {
+    try {
+        const url = `https://query1.finance.yahoo.com/v7/finance/options/${sym}`;
+        const response = await fetch(PROXY + encodeURIComponent(url));
+        const data = await response.json();
+        
+        console.log('P/C Ratio Data:', data);
+        
+        if (!data.optionChain?.result?.[0]?.options?.[0]) {
+            console.warn('No options data available for P/C ratio');
+            return 0;
+        }
+        
+        const options = data.optionChain.result[0].options[0];
+        let putVol = 0, callVol = 0;
+        
+        // Sum volumes
+        if (options.calls) {
+            options.calls.forEach(c => callVol += (c.volume || 0));
+        }
+        
+        if (options.puts) {
+            options.puts.forEach(p => putVol += (p.volume || 0));
+        }
+        
+        console.log(`Put Vol: ${putVol}, Call Vol: ${callVol}`);
+        
+        const ratio = callVol > 0 ? (putVol / callVol) : 0;
+        return ratio;
+    } catch (err) {
+        console.error("Put/Call ratio fetch failed:", err);
+        return 0;
+    }
+}
+       async function fetchCVD(sym) {
+    try {
+        const now = Math.floor(Date.now() / 1000);
+        const start = now - 86400; // 24 hours ago
+        const url = `https://query1.finance.yahoo.com/v8/finance/chart/${sym}?interval=5m&period1=${start}&period2=${now}`;
+        
+        const response = await fetch(PROXY + encodeURIComponent(url));
+        const data = await response.json();
+        
+        console.log('CVD Data:', data);
+        
+        if (!data.chart?.result?.[0]) {
+            console.warn('No intraday data available for CVD');
+            return 0;
+        }
+        
+        const result = data.chart.result[0];
+        const quote = result.indicators.quote[0];
+        const closes = quote.close;
+        const volumes = quote.volume;
+        
+        if (!closes || !volumes) {
+            console.warn('Missing price or volume data');
+            return 0;
+        }
+        
+        let cvd = 0;
+        for (let i = 1; i < closes.length; i++) {
+            if (closes[i] != null && closes[i-1] != null && volumes[i] != null) {
+                const direction = closes[i] > closes[i-1] ? 1 : (closes[i] < closes[i-1] ? -1 : 0);
+                cvd += volumes[i] * direction;
             }
         }
-        async function fetchCVDYahoo(sym) {
-            try {
-                const now = Math.floor(Date.now() / 1000);
-                const start = now - 86400;
-                const url = `https://query1.finance.yahoo.com/v8/finance/chart/${sym}?interval=5m&period1=${start}&period2=${now}`;
-                
-                const response = await fetch(PROXY + encodeURIComponent(url));
-                const data = await response.json();
-                
-                if (!data.chart?.result?.[0]) {
-                    console.warn('No intraday data available');
-                    return 0;
-                }
-                
-                const quote = data.chart.result[0].indicators.quote[0];
-                const closes = quote.close;
-                const volumes = quote.volume;
-                
-                let cvd = 0;
-                for (let i = 1; i < closes.length; i++) {
-                    if (closes[i] && closes[i-1] && volumes[i]) {
-                        const dir = closes[i] > closes[i-1] ? 1 : (closes[i] < closes[i-1] ? -1 : 0);
-                        cvd += volumes[i] * dir;
-                    }
-                }
-                
-                console.log(`CVD: ${cvd.toFixed(0)}`);
-                return cvd;
-            } catch (err) {
-                console.error("CVD error:", err);
-                return 0;
-            }
-        }
+        
+        console.log(`CVD calculated: ${cvd.toFixed(0)}`);
+        return cvd;
+    } catch (err) {
+        console.error("CVD fetch failed:", err);
+        return 0;
+    }
+}
         async function runAnalysis() {
             const paidPrem = parseFloat(document.getElementById('paidPremium').value);
             const currentPrem = parseFloat(document.getElementById('currentPremium').value);
@@ -491,11 +508,12 @@
                 volNote += 'ATR expansion confirmed. ';
             }
             // Put/Call Ratio
-            const pcr = await fetchPutCallRatioYahoo(sym);
-            document.getElementById('pcr').textContent = pcr.toFixed(2);
+            const pcr = await fetchPutCallRatio(sym);
+document.getElementById('pcr').textContent = pcr.toFixed(2);
+
             // CVD
-            const cvd = await fetchCVDYahoo(sym);
-            document.getElementById('cvd').textContent = cvd.toFixed(2);
+            const cvd = await fetchCVD(sym);
+document.getElementById('cvd').textContent = cvd.toFixed(2);
             // Market regime placeholder (add more as needed)
             const adx = 20; // Placeholder calculation for ADX
             // Macro placeholder
