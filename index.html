@@ -108,11 +108,17 @@
     <div><label>Option Type</label><select id="type"><option value="call">Call</option><option value="put">Put</option></select></div>
     <div><label>Risk-Free Rate (10Y %)</label><input type="number" id="rf" step="0.01" value="0.00" /></div>
     <div><label>Dividend Yield (%)</label><input type="number" id="dividend" value="0.00" readonly /></div>
+    <div style="grid-column: span 2; display: grid; grid-template-columns: 1fr 1fr; gap: 1.2rem;">
     <div>
-        <label>Premium (Market Price)</label>
-        <input type="number" id="premium" step="0.01" value="0.00" style="border: 2px solid #ccc;" oninput="checkPremiumWarn(); updateIV()"/>
+        <label>Paid Premium Price (Cost Basis)</label>
+        <input type="number" id="premiumPaid" step="0.01" value="0.00" style="border: 2px solid #ccc;" oninput="checkPremiumWarn()" />
         <div id="premWarning" class="warning-box">⚠️ Market price not found. Please enter manually.</div>
     </div>
+    <div>
+        <label>Current Premium Price (Live/IV)</label>
+        <input type="number" id="premiumCurrent" step="0.01" value="0.00" style="border: 2px solid var(--primary);" oninput="updateIV()" />
+    </div>
+</div>
     <div><label>Implied Volatility (%)</label><input type="number" id="iv" readonly /></div>
 
     <button type="button" class="btn-calc" onclick="runInstitutionalAnalysis()">Run Full Analysis (100k Monte Carlo)</button>
@@ -185,34 +191,33 @@ function calculateIV(S, K, T, r, prem, type) {
 }
 
 function updateIV() {
-  const S = parseFloat(document.getElementById('stockPrice').value);
-  const K = parseFloat(document.getElementById('strike').value);
-  const prem = parseFloat(document.getElementById('premium').value);
-  const r = parseFloat(document.getElementById('rf').value) / 100;
-  const type = document.getElementById('type').value;
-  const expiry = document.getElementById('expiry').value;
-  if (!expiry || prem <= 0 || S <= 0 || K <= 0) {
-    document.getElementById('iv').value = '';
-    return;
-  }
-  const [day, month, year] = expiry.split('/').map(Number);
-  const T = Math.max(0.001, (new Date(year, month - 1, day) - new Date()) / (1000 * 60 * 60 * 24 * 365));
-  const iv = calculateIV(S, K, T, r, prem, type).toFixed(2);
-  document.getElementById('iv').value = iv;
+    const S = parseFloat(document.getElementById('stockPrice').value);
+    const K = parseFloat(document.getElementById('strike').value);
+    const prem = parseFloat(document.getElementById('premiumCurrent').value); // Uses Current
+    const r = parseFloat(document.getElementById('rf').value) / 100;
+    const type = document.getElementById('type').value;
+    const expiry = document.getElementById('expiry').value;
+    
+    if (!expiry || prem <= 0 || S <= 0 || K <= 0) {
+        document.getElementById('iv').value = '';
+        return;
+    }
+    const [day, month, year] = expiry.split('/').map(Number);
+    const T = Math.max(0.001, (new Date(year, month - 1, day) - new Date()) / (1000 * 60 * 60 * 24 * 365));
+    const iv = calculateIV(S, K, T, r, prem, type).toFixed(2);
+    document.getElementById('iv').value = iv;
 }
 
-function checkPremiumWarn() {
-    const p = parseFloat(document.getElementById('premium').value);
-    const warn = document.getElementById('premWarning');
-    const input = document.getElementById('premium');
-    if (p <= 0) {
-        warn.style.display = 'block';
-        input.style.borderColor = '#ff4d4d';
-    } else {
-        warn.style.display = 'none';
-        input.style.borderColor = '#ccc';
-    }
+// In showStrikePicker, update the click handler to fill BOTH boxes
+// ... inside showStrikePicker btn.onclick ...
+btn.onclick = () => { 
+    document.getElementById('strike').value = opt.strike;
+    document.getElementById('premiumPaid').value = finalPrice.toFixed(2);
+    document.getElementById('premiumCurrent').value = finalPrice.toFixed(2);
+    if (opt.iv) document.getElementById('iv').value = (opt.iv * 100).toFixed(2);
+    checkPremiumWarn();
     updateIV();
+    overlay.remove(); 
 }
 
 function updateClock() {
@@ -427,35 +432,58 @@ async function runInstitutionalAnalysis() {
 }
 
 function runAnalysis(mcProb) {
-    const prem = parseFloat(document.getElementById('premium').value);
+    // 1. Get Inputs
+    const premPaid = parseFloat(document.getElementById('premiumPaid').value) || 0;
+    const premCurr = parseFloat(document.getElementById('premiumCurrent').value) || 0;
     const S = parseFloat(document.getElementById('stockPrice').value);
     const K = parseFloat(document.getElementById('strike').value);
     const r = parseFloat(document.getElementById('rf').value) / 100;
     const type = document.getElementById('type').value;
     const qty = parseInt(document.getElementById('qty').value);
-    const [day, month, year] = document.getElementById('expiry').value.split('/').map(Number);
+    
+    // 2. Time to Expiry Calculation
+    const expiry input = document.getElementById('expiry').value.split('/');
+    const [day, month, year] = expiry.map(Number);
     const T = Math.max(0.001, (new Date(year, month - 1, day) - new Date()) / (1000 * 60 * 60 * 24 * 365));
+    
+    // 3. Volatility (IV)
     let iv = parseFloat(document.getElementById('iv').value) / 100 || 0.5;
 
-    const d1 = (Math.log(S/K) + (r + 0.5 * iv * iv) * T) / (iv * Math.sqrt(T));
+    // 4. Black-Scholes Intermediate Calcs
+    const d1 = (Math.log(S / K) + (r + 0.5 * iv * iv) * T) / (iv * Math.sqrt(T));
     const d2 = d1 - (iv * Math.sqrt(T));
-    const be = type === 'call' ? K + prem : K - prem;
+    
+    // 5. Summary Stats (Based on Original Cost/Paid)
+    const be = type === 'call' ? K + premPaid : K - premPaid;
+    const costBasis = premPaid * 100 * qty;
+    const currentVal = premCurr * 100 * qty;
+    const unrealizedPL = currentVal - costBasis;
 
+    // Update UI - Summary based on PAID
     document.getElementById('pop').textContent = mcProb ? mcProb.toFixed(1) + "%" : ((type === 'call' ? normCDF(d2) : normCDF(-d2)) * 100).toFixed(1) + "%";
-    document.getElementById('resCost').textContent = "$" + (prem * 100 * qty).toLocaleString();
+    document.getElementById('resCost').textContent = "$" + costBasis.toLocaleString();
     document.getElementById('resBreak').textContent = be.toFixed(2);
-    document.getElementById('resProfit').textContent = type === 'call' ? "Unlimited" : "$" + ((K - prem) * 100 * qty).toLocaleString();
-    document.getElementById('resLoss').textContent = "$" + (prem * 100 * qty).toLocaleString();
+    
+    // Profit potential (Max Profit for Puts is capped at Strike - Premium)
+    document.getElementById('resProfit').textContent = type === 'call' ? "Unlimited" : "$" + ((K - premPaid) * 100 * qty).toLocaleString();
+    document.getElementById('resLoss').textContent = "$" + costBasis.toLocaleString();
 
-    // FULL GREEKS RESTORED
+    // OPTIONAL: Update a P&L display if you have one
+    if(document.getElementById('resPL')) {
+        document.getElementById('resPL').textContent = (unrealizedPL >= 0 ? "+$" : "-$") + Math.abs(unrealizedPL).toLocaleString();
+        document.getElementById('resPL').style.color = unrealizedPL >= 0 ? "#00ff00" : "#ff0000";
+    }
+
+    // 6. Greeks (Based on CURRENT market price/IV)
     document.getElementById('d').textContent = (type === 'call' ? normCDF(d1) : normCDF(d1) - 1).toFixed(3);
     document.getElementById('g').textContent = (normPDF(d1) / (S * iv * Math.sqrt(T))).toFixed(4);
     document.getElementById('t').textContent = (-(S * normPDF(d1) * iv / (2 * Math.sqrt(T)) / 365)).toFixed(3);
     document.getElementById('v').textContent = (S * Math.sqrt(T) * normPDF(d1) / 100).toFixed(3);
-    document.getElementById('r').textContent = ((type === 'call' ? K*T*Math.exp(-r*T)*normCDF(d2) : -K*T*Math.exp(-r*T)*normCDF(-d2))/100).toFixed(3);
+    document.getElementById('r').textContent = ((type === 'call' ? K * T * Math.exp(-r * T) * normCDF(d2) : -K * T * Math.exp(-r * T) * normCDF(-d2)) / 100).toFixed(3);
 
+    // 7. Visuals
     document.getElementById('results').style.display = 'block';
-    drawChart(S, K, type, prem, qty, iv, T, r, be);
+    drawChart(S, K, type, premPaid, qty, iv, T, r, be);
 }
 
 function drawChart(S, K, type, prem, qty, iv, T, r, be) {
